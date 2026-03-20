@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spec-V 人材診断 v2.3</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap');
+:root{
+  --bg:#0f0f0f;--bg2:#161616;--bg3:#1e1e1e;
+  --border:#2a2a2a;--border2:#383838;
+  --text:#e8e6e0;--text2:#8a8880;--text3:#555350;
+  --soul:#7f77dd;--r:10px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:'Noto Sans JP',sans-serif;font-weight:300;min-height:100vh;padding:0 0 80px;}
+
+/* ── Header ── */
+.header{padding:48px 24px 32px;max-width:680px;margin:0 auto;border-bottom:1px solid var(--border);margin-bottom:32px;}
+.header-label{font-family:'DM Mono',monospace;font-size:11px;color:var(--text3);letter-spacing:.12em;margin-bottom:12px;}
+.header h1{font-size:26px;font-weight:500;letter-spacing:-.02em;line-height:1.3;margin-bottom:10px;}
+.header p{font-size:13px;color:var(--text2);line-height:1.8;}
+
+/* ── Situation selector ── */
+.situation-wrap{max-width:680px;margin:0 auto 32px;padding:0 24px;}
+.situation-label{font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.6;}
+.sit-grid{display:grid;grid-template-columns:1fr;gap:8px;}
+.sit-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:16px 18px;cursor:pointer;transition:border-color .2s,background .2s;display:flex;align-items:flex-start;gap:14px;}
+.sit-card:hover{border-color:var(--border2);}
+.sit-card.selected{border-color:var(--soul);background:rgba(127,119,221,.06);}
+.sit-radio{width:16px;height:16px;border-radius:50%;border:1.5px solid var(--border2);flex-shrink:0;margin-top:2px;transition:all .2s;display:flex;align-items:center;justify-content:center;}
+.sit-card.selected .sit-radio{border-color:var(--soul);background:var(--soul);}
+.sit-radio-dot{width:6px;height:6px;border-radius:50%;background:var(--bg2);display:none;}
+.sit-card.selected .sit-radio-dot{display:block;}
+.sit-text{flex:1;}
+.sit-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:3px;}
+.sit-desc{font-size:11px;color:var(--text3);line-height:1.6;}
+.sit-card.selected .sit-title{color:#afa9ec;}
+
+/* ── Progress ── */
+.prog-bar{max-width:680px;margin:0 auto 24px;padding:0 24px;}
+.prog-track{height:2px;background:var(--border);border-radius:2px;overflow:hidden;}
+.prog-fill{height:100%;background:var(--soul);border-radius:2px;transition:width .4s ease;width:0%;}
+.prog-text{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-top:6px;text-align:right;}
+
+/* ── Scale legend ── */
+.scale-row{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;max-width:680px;margin:0 auto 20px;padding:0 24px;}
+.sc-item{background:var(--bg3);border-radius:5px;padding:4px 6px;text-align:center;}
+.sc-num{font-family:'DM Mono',monospace;font-size:11px;font-weight:500;display:block;}
+.sc-desc{font-size:9px;color:var(--text3);display:block;margin-top:1px;}
+
+/* ── Question cards ── */
+.q-wrap{max-width:680px;margin:0 auto;padding:0 24px;}
+.q-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:20px 20px 16px;margin-bottom:10px;transition:border-color .2s;}
+.q-card:focus-within{border-color:var(--border2);}
+.q-seq{font-family:'DM Mono',monospace;font-size:10px;color:var(--text3);margin-bottom:10px;}
+.q-text{font-size:14px;line-height:1.75;color:var(--text);margin-bottom:16px;font-weight:400;}
+
+/* ── Slider — all grey ── */
+.sl-lbls{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:6px;font-family:'DM Mono',monospace;}
+.sl-wrap{display:flex;align-items:center;gap:12px;}
+.sl-area{flex:1;}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:3px;border-radius:2px;background:var(--border2);outline:none;cursor:pointer;}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--text);cursor:pointer;border:3px solid var(--bg2);box-shadow:0 0 0 1px var(--border2);transition:transform .15s;}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);}
+.sl-val{font-family:'DM Mono',monospace;font-size:16px;font-weight:500;min-width:20px;text-align:center;color:var(--text2);}
+.sl-val.touched{color:var(--text);}
+
+/* ── Comment ── */
+.cmt-toggle{display:flex;align-items:center;gap:6px;margin-top:12px;cursor:pointer;color:var(--text3);font-size:11px;user-select:none;transition:color .2s;}
+.cmt-toggle:hover{color:var(--text2);}
+.cmt-toggle svg{width:12px;height:12px;flex-shrink:0;}
+.cmt-area{margin-top:8px;display:none;}
+.cmt-area.open{display:block;}
+.cmt-area textarea{width:100%;background:var(--bg3);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:300;line-height:1.7;padding:10px 12px;resize:vertical;min-height:64px;outline:none;transition:border-color .2s;}
+.cmt-area textarea:focus{border-color:var(--border2);}
+.cmt-area textarea::placeholder{color:var(--text3);}
+.ai-note{font-size:10px;color:var(--text3);margin-top:5px;display:flex;align-items:center;gap:5px;}
+.ai-dot{width:5px;height:5px;border-radius:50%;background:var(--soul);flex-shrink:0;}
+
+/* ── Submit ── */
+.submit-area{max-width:680px;margin:40px auto 0;padding:0 24px;}
+.submit-btn{width:100%;padding:16px;background:var(--text);color:var(--bg);border:none;border-radius:var(--r);font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:500;cursor:pointer;transition:opacity .2s,transform .15s;letter-spacing:.04em;}
+.submit-btn:hover{opacity:.88;}
+.submit-btn:active{transform:scale(.99);}
+.submit-btn:disabled{opacity:.4;cursor:not-allowed;}
+.submit-note{font-size:11px;color:var(--text3);text-align:center;margin-top:10px;line-height:1.7;}
+
+/* ── Result ── */
+#result{display:none;max-width:680px;margin:40px auto 0;padding:0 24px;}
+#result.visible{display:block;}
+.res-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:24px;margin-bottom:16px;}
+.res-title{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:20px;font-family:'DM Mono',monospace;letter-spacing:.06em;}
+.res-ctx{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:#afa9ec;background:rgba(127,119,221,.1);border:1px solid rgba(127,119,221,.2);border-radius:20px;padding:3px 10px;margin-bottom:20px;}
+
+.score-row{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.score-axis{font-size:12px;color:var(--text2);min-width:100px;}
+.score-track{flex:1;height:4px;background:var(--border);border-radius:2px;overflow:hidden;}
+.score-bar{height:100%;border-radius:2px;transition:width .9s cubic-bezier(.16,1,.3,1);width:0%;}
+.score-num{font-family:'DM Mono',monospace;font-size:12px;color:var(--text);min-width:36px;text-align:right;}
+
+.flags-area{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);}
+.flags-title{font-size:10px;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.08em;margin-bottom:10px;}
+.flag-item{font-size:12px;color:var(--text2);line-height:1.7;display:flex;gap:8px;margin-bottom:6px;align-items:flex-start;}
+.flag-dot{width:6px;height:6px;border-radius:50%;margin-top:5px;flex-shrink:0;}
+
+.radar-wrap{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);position:relative;height:300px;}
+
+/* ── Story ── */
+.story-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:24px;}
+.story-title{font-size:11px;font-weight:500;color:var(--text2);margin-bottom:16px;font-family:'DM Mono',monospace;letter-spacing:.06em;}
+.story-loading{display:flex;align-items:center;gap:10px;color:var(--text3);font-size:13px;padding:8px 0;}
+.story-dot{width:6px;height:6px;border-radius:50%;background:var(--soul);animation:pulse 1.2s ease-in-out infinite;}
+.story-dot:nth-child(2){animation-delay:.2s;}
+.story-dot:nth-child(3){animation-delay:.4s;}
+@keyframes pulse{0%,100%{opacity:.3;}50%{opacity:1;}}
+.axis-story{margin-bottom:20px;padding-bottom:20px;border-bottom:1px solid var(--border);}
+.axis-story:last-child{margin-bottom:0;padding-bottom:0;border-bottom:none;}
+.axis-story-head{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+.axis-story-badge{font-family:'DM Mono',monospace;font-size:9px;padding:2px 8px;border-radius:20px;border:1px solid;}
+.axis-story-body{font-size:13px;line-height:1.9;color:var(--text2);}
+.biz-point{margin-top:8px;padding:10px 12px;background:var(--bg3);border-radius:6px;font-size:12px;color:var(--text2);line-height:1.8;border-left:2px solid var(--border2);}
+.biz-point strong{color:var(--text);font-weight:500;display:block;margin-bottom:2px;font-size:11px;}
+.overall-story{background:var(--bg3);border-radius:8px;padding:16px;margin-top:16px;font-size:13px;line-height:1.9;color:var(--text);}
+.overall-label{font-size:10px;font-weight:500;color:var(--text3);font-family:'DM Mono',monospace;letter-spacing:.06em;display:block;margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-label">SPEC-V — 人材診断 v2.3</div>
+  <h1>自己評価フォーム</h1>
+  <p>直近30日の自分の行動・状態をもとに回答してください。<br>「補足を書く」に状況や文脈を書くと、AIがより正確に読み解きます。</p>
+</div>
+
+<!-- 状況選択 -->
+<div class="situation-wrap">
+  <div class="situation-label">まず、今回の診断目的を選んでください。<br>同じ回答でも、目的によってAIの分析角度が変わります。</div>
+  <div class="sit-grid" id="sit-grid">
+    <div class="sit-card selected" data-sit="self" onclick="selectSit(this)">
+      <div class="sit-radio"><div class="sit-radio-dot"></div></div>
+      <div class="sit-text">
+        <div class="sit-title">自分自身を知りたい</div>
+        <div class="sit-desc">人間としての強み・課題・今の状態を把握したい個人向け</div>
+      </div>
+    </div>
+    <div class="sit-card" data-sit="career" onclick="selectSit(this)">
+      <div class="sit-radio"><div class="sit-radio-dot"></div></div>
+      <div class="sit-text">
+        <div class="sit-title">転職・キャリアを考えている</div>
+        <div class="sit-desc">今の環境が合っているか、次に何をすべきかを判断したい</div>
+      </div>
+    </div>
+    <div class="sit-card" data-sit="biz" onclick="selectSit(this)">
+      <div class="sit-radio"><div class="sit-radio-dot"></div></div>
+      <div class="sit-text">
+        <div class="sit-title">チーム・組織を改善したい</div>
+        <div class="sit-desc">経営者・管理職として、チームの損失と改善ポイントを知りたい</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="prog-bar">
+  <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+  <div class="prog-text" id="prog-text">0 / 28 回答済み</div>
+</div>
+
+<div class="scale-row">
+  <div class="sc-item"><span class="sc-num">0</span><span class="sc-desc">ほぼない</span></div>
+  <div class="sc-item"><span class="sc-num">1</span><span class="sc-desc">たまにある</span></div>
+  <div class="sc-item"><span class="sc-num">2</span><span class="sc-desc">よくある</span></div>
+  <div class="sc-item"><span class="sc-num">3</span><span class="sc-desc">ほぼ常態</span></div>
+</div>
+
+<div class="q-wrap" id="q-container"></div>
+
+<div class="submit-area">
+  <button type="button" class="submit-btn" id="submit-btn" onclick="submitForm()">スコアを算出 ＋ AIストーリー分析</button>
+  <div class="submit-note">コメントはAI分析にのみ使用。数字とコメントを合わせてあなた固有のストーリーを読み解きます</div>
+</div>
+
+<div id="result">
+  <div class="res-card">
+    <div class="res-title">SPEC-V — スコア</div>
+    <div id="res-ctx-wrap"></div>
+    <div id="score-rows"></div>
+    <div class="flags-area">
+      <div class="flags-title">HONESTY FIREWALL — 矛盾検出</div>
+      <div id="flag-rows"></div>
+    </div>
+    <div class="radar-wrap"><canvas id="radar-chart"></canvas></div>
+  </div>
+  <div class="story-card">
+    <div class="story-title">AI — あなたのストーリー分析</div>
+    <div id="story-output">
+      <div class="story-loading">
+        <span class="story-dot"></span><span class="story-dot"></span><span class="story-dot"></span>
+        <span style="margin-left:4px;">AIが分析中...</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const ALL_QUESTIONS = [
+  {id:'P1',axis:'push',rev:false,text:'自分から新しい接触や行動を起こした（提案・アポ・連絡など）',ph:'どんな場面で行動したか、または行動できなかった状況など'},
+  {id:'P2',axis:'push',rev:false,text:'うまくいかなかった後、切り替えて次の行動に移せた',ph:'どんな状況で、どう動いたか'},
+  {id:'P3',axis:'push',rev:false,text:'断られたり無視されたりしても、アプローチを変えて続けた',ph:'具体的な状況があれば'},
+  {id:'P4',axis:'push',rev:true, text:'やりたいことがあっても「忙しい」「準備できてない」で先送りした',ph:'何を先送りしたか、なぜ先送りになったか'},
+  {id:'T1',axis:'toxic',rev:false,text:'口調が強くなった、または圧を与えてしまったと後から気づいた',ph:'どんな状況で、相手はどう見えたか'},
+  {id:'T2',axis:'toxic',rev:false,text:'その場の勢いで方針や決定を変えてしまった',ph:'具体的な場面や背景があれば'},
+  {id:'T3',axis:'toxic',rev:false,text:'相手の話を最後まで聞かずに自分の話を始めた',ph:'どんな場面で、なぜそうなったか'},
+  {id:'T4',axis:'toxic',rev:false,text:'自分が場の空気を悪くしたと感じる場面があった',ph:'状況や原因として思い当たること'},
+  {id:'C1',axis:'lock', rev:false,text:'本来自分がやらなくていい仕事に時間を取られた',ph:'どんな仕事に時間を取られているか'},
+  {id:'C2',axis:'lock', rev:false,text:'裁量がなくて、できることが制限されていると感じた',ph:'どんな場面で制限を感じるか'},
+  {id:'C3',axis:'lock', rev:false,text:'自分の強みが今の仕事で活かされていないと感じた',ph:'本来の強みは何で、今どんな状況か'},
+  {id:'C4',axis:'lock', rev:false,text:'「この仕事、自分じゃなくていい」と思う場面があった',ph:'どんな仕事で感じるか'},
+  {id:'G1',axis:'gap',  rev:false,text:'自分の評価と、周りからの反応・フィードバックがズレていると感じた',ph:'どんな場面でズレを感じたか'},
+  {id:'G2',axis:'gap',  rev:false,text:'「なぜあの人がそんなに評価されるんだ」と思う場面があった',ph:'具体的な状況や背景'},
+  {id:'G3',axis:'gap',  rev:false,text:'自分はうまくやっているのに、周りの反応が想定と違った',ph:'どんな場面で、どう違ったか'},
+  {id:'G4',axis:'gap',  rev:false,text:'自分の弱点を人から指摘されて、初めて気づいたことがあった',ph:'何を指摘されたか（任意）'},
+  {id:'S1',axis:'soul', rev:false,text:'うまくいかなかった後、引きずらずに次の行動に移せた',ph:'どんな状況で、どう動いたか'},
+  {id:'S2',axis:'soul', rev:false,text:'誰にも見られていない状況でも、正しいと思う行動をとった',ph:'具体的な場面があれば'},
+  {id:'S3',axis:'soul', rev:false,text:'周りから反対されても、自分が正しいと思う方向を貫いた',ph:'どんな反対があって、どう動いたか'},
+  {id:'S4',axis:'soul', rev:true, text:'自分の意見を伝えられる立場・場面があったのに、波風を避けるために黙った',ph:'なぜ黙ったかの文脈を。構造的に言えない状況だった場合も書いてください'},
+  {id:'S5',axis:'soul', rev:true, text:'失敗や損失の後、しばらく動けなくなった、または諦めた',ph:'どんな失敗で、どう影響したか。一時的な要因があれば'},
+  {id:'S6',axis:'soul', rev:true, text:'バレなければいい、という判断をしたことがあった',ph:'どんな状況か。日常の小さいことも含めて正直に'},
+  {id:'L1',axis:'love', rev:false,text:'見返りや評価がなくても、誰かのために時間や手間をかけた',ph:'どんな場面で、誰のために動いたか'},
+  {id:'L2',axis:'love', rev:false,text:'立場や力が自分より弱い人に対しても、同じ態度で接した',ph:'具体的な場面があれば'},
+  {id:'L3',axis:'love', rev:false,text:'誰かが自分より成功したり認められたとき、素直に喜べた',ph:'どんな場面で、どう感じたか'},
+  {id:'L4',axis:'love', rev:true, text:'困っている人を見かけたとき、「関わると面倒」と思って素通りしたことがあった',ph:'どんな状況か。急いでいた・物理的に無理だったなど文脈を'},
+  {id:'L5',axis:'love', rev:true, text:'相手が自分より下だと感じると、態度や言葉が変わることがあった',ph:'どんな場面で気づいたか'},
+  {id:'L6',axis:'love', rev:true, text:'部下や後輩が自分を追い越しそうなとき、どこか面白くない気持ちがあった',ph:'どんな状況で、どう感じたか'},
+];
+
+const AXIS_INFO = [
+  {key:'push', label:'① 推進力',      color:'#378add',invert:false},
+  {key:'toxic',label:'② 毒のなさ',    color:'#e24b4a',invert:true },
+  {key:'lock', label:'③ 解放度',      color:'#ef9f27',invert:true },
+  {key:'gap',  label:'④ 自己認知精度',color:'#d4537e',invert:true },
+  {key:'soul', label:'⑤ 魂スコア',    color:'#7f77dd',invert:false},
+  {key:'love', label:'⑥ 愛スコア',    color:'#1d9e75',invert:false},
+];
+
+const SIT_LABELS = {
+  self:   '自分自身を知りたい',
+  career: '転職・キャリアを考えている',
+  biz:    'チーム・組織を改善したい',
+};
+
+const SIT_PROMPTS = {
+  self:   'この人物は「自分自身を理解すること」を目的にこの診断を受けました。人間としての本質・強み・課題・今の状態を中心に分析し、どう生きるべきか・何を大切にすべきかという観点で指導ポイントを書いてください。',
+  career: 'この人物は「転職・キャリア判断」を目的にこの診断を受けました。今の環境が本人の能力・軸に合っているかを分析し、次にどんな環境・役割に移るべきか、何を条件にすべきかという観点で具体的な指導ポイントを書いてください。',
+  biz:    'この人物は「チーム・組織改善」を目的にこの診断を受けました。このスコアを持つ人物がチームにどんな影響を与えるか、何が組織の損失源になっているか、どう配置・活用すべきかという経営者・管理職向けの観点で指導ポイントを書いてください。',
+};
+
+function shuffle(arr){
+  const a=[...arr];
+  for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+  return a;
+}
+
+const SHUFFLED = shuffle(ALL_QUESTIONS);
+const answered = new Set();
+let selectedSit = 'self';
+
+function selectSit(el){
+  document.querySelectorAll('.sit-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedSit = el.dataset.sit;
+}
+
+function buildQuestions(){
+  const container = document.getElementById('q-container');
+  SHUFFLED.forEach((q,idx)=>{
+    const card = document.createElement('div');
+    card.className = 'q-card';
+    card.innerHTML = `
+      <div class="q-seq">${String(idx+1).padStart(2,'0')} / 28</div>
+      <div class="q-text">${q.text}</div>
+      <div class="sl-area">
+        <div class="sl-lbls"><span>ほぼない</span><span>ほぼ常態</span></div>
+        <div class="sl-wrap">
+          <input type="range" min="0" max="3" step="1" value="1"
+            class="q-slider" data-id="${q.id}" oninput="onSlider(this)">
+          <span class="sl-val">1</span>
+        </div>
+      </div>
+      <div class="cmt-toggle" onclick="toggleCmt(this)">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4h8M2 8h5"/></svg>
+        補足を書く（AIが文脈を読んで解釈します）
+      </div>
+      <div class="cmt-area">
+        <textarea placeholder="${q.ph}" rows="3" data-for="${q.id}"></textarea>
+        <div class="ai-note"><span class="ai-dot"></span>AIストーリー分析に使用されます</div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+function onSlider(input){
+  const val = parseInt(input.value);
+  const valEl = input.nextElementSibling;
+  valEl.textContent = val;
+  valEl.classList.add('touched');
+  // grey fill only
+  const pct = (val/3)*100;
+  input.style.background = `linear-gradient(to right,#555350 ${pct}%,#383838 ${pct}%)`;
+  answered.add(input.dataset.id);
+  updateProg();
+}
+
+function updateProg(){
+  const total = ALL_QUESTIONS.length;
+  const pct = Math.round((answered.size/total)*100);
+  document.getElementById('prog-fill').style.width = pct+'%';
+  document.getElementById('prog-text').textContent = `${answered.size} / ${total} 回答済み`;
+}
+
+function toggleCmt(el){el.nextElementSibling.classList.toggle('open');}
+
+function getSliderVals(){
+  const vals={};
+  document.querySelectorAll('.q-slider').forEach(s=>{vals[s.dataset.id]=parseInt(s.value);});
+  return vals;
+}
+
+function getComments(){
+  const cmts={};
+  document.querySelectorAll('.cmt-area textarea').forEach(t=>{
+    if(t.value.trim()) cmts[t.dataset.for]=t.value.trim();
+  });
+  return cmts;
+}
+
+function calcScores(sv){
+  const raw={push:[],toxic:[],lock:[],gap:[],soul:[],love:[]};
+  ALL_QUESTIONS.forEach(q=>{
+    let v=sv[q.id]!==undefined?sv[q.id]:1;
+    if(q.rev) v=3-v;
+    raw[q.axis].push(v);
+  });
+  const scores={};
+  for(const [axis,vals] of Object.entries(raw)){
+    scores[axis]=Math.round((vals.reduce((a,b)=>a+b,0)/vals.length/3)*100);
+  }
+  return scores;
+}
+
+function detectFlags(sv){
+  const flags=[];
+  if(sv.S3>=2&&sv.S4>=2) flags.push({c:'#ef9f27',t:'S3高＋S4高：「信念を貫く」と「場で黙る」が同時に高い。コメントで文脈を確認'});
+  if(sv.S1>=2&&sv.S5>=2) flags.push({c:'#ef9f27',t:'S1高＋S5高：「すぐ切り替える」と「諦めた」が同時に高い。自己過信の可能性'});
+  if(sv.S2>=2&&sv.S6>=2) flags.push({c:'#e24b4a',t:'S2高＋S6高：「誠実な行動」と「バレなければいい」が矛盾'});
+  if(sv.L1>=2&&sv.L4>=2) flags.push({c:'#ef9f27',t:'L1高＋L4高：「無償で動く」と「面倒で素通り」が同時に高い'});
+  if(sv.L3>=2&&sv.L6>=2) flags.push({c:'#e24b4a',t:'L3高＋L6高：「他者の成功を喜べる」と「面白くない」が矛盾'});
+  if(!flags.length) flags.push({c:'#1d9e75',t:'矛盾フラグなし。回答の一貫性が高く、自己認知が正確です'});
+  if(sv.S6>=1) flags.push({c:'#7f77dd',t:'S6に正直に回答。逆転項目を正直に認める人 ＝ 信頼できる自己認知'});
+  return flags;
+}
+
+function buildPrompt(scores, sv, cmts, sit){
+  const axisLines = AXIS_INFO.map(ax=>{
+    const display = ax.invert?(100-scores[ax.key]):scores[ax.key];
+    return `${ax.label}：${display}/100`;
+  }).join('\n');
+  const commentLines = Object.entries(cmts).map(([id,c])=>`${id}: ${c}`).join('\n')||'（コメントなし）';
+  const sliderLines = Object.entries(sv).map(([id,v])=>`${id}=${v}`).join(', ');
+  const sitContext = SIT_PROMPTS[sit]||SIT_PROMPTS.self;
+
+  return `あなたはSpec-V人材診断ツールのAIアナリストです。
+
+【診断目的】
+${sitContext}
+
+【スコア（全軸 大きい＝良い、100点満点）】
+${axisLines}
+
+【各質問のスライダー値（0〜3）】
+${sliderLines}
+
+【回答者のコメント（文脈・状況）】
+${commentLines}
+
+以下の形式でJSONのみ返してください。前後に説明文やマークダウンは不要です。
+
+{"axes":[{"axis":"① 推進力","score":数値,"story":"2〜3文の読み解き","point":"診断目的に合わせた具体的な指導ポイント1〜2文"},{"axis":"② 毒のなさ","score":数値,"story":"...","point":"..."},{"axis":"③ 解放度","score":数値,"story":"...","point":"..."},{"axis":"④ 自己認知精度","score":数値,"story":"...","point":"..."},{"axis":"⑤ 魂スコア","score":数値,"story":"...","point":"..."},{"axis":"⑥ 愛スコア","score":数値,"story":"...","point":"..."}],"overall":"6軸を統合した総合読み解き。診断目的に合わせて、今この人物が何をすべきかまで含めて3〜4文で。"}`;
+}
+
+async function callAI(prompt){
+  const resp = await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      model:'claude-sonnet-4-20250514',
+      max_tokens:2000,
+      messages:[{role:'user',content:prompt}]
+    })
+  });
+  if(!resp.ok) throw new Error(`API error: ${resp.status}`);
+  const data = await resp.json();
+  const text = data.content?.find(b=>b.type==='text')?.text||'';
+  const clean = text.replace(/```json|```/g,'').trim();
+  return JSON.parse(clean);
+}
+
+function renderStory(result){
+  const axisColors={
+    '① 推進力':'#378add','② 毒のなさ':'#e24b4a','③ 解放度':'#ef9f27',
+    '④ 自己認知精度':'#d4537e','⑤ 魂スコア':'#7f77dd','⑥ 愛スコア':'#1d9e75'
+  };
+  let html = result.axes.map(ax=>{
+    const c=axisColors[ax.axis]||'#7f77dd';
+    return `<div class="axis-story">
+      <div class="axis-story-head">
+        <span class="axis-story-badge" style="color:${c};border-color:${c}44;background:${c}18;">${ax.axis}</span>
+        <span style="font-family:'DM Mono',monospace;font-size:11px;color:${c};">${ax.score}/100</span>
+      </div>
+      <div class="axis-story-body">${ax.story}</div>
+      ${ax.point?`<div class="biz-point"><strong>指導ポイント</strong>${ax.point}</div>`:''}
+    </div>`;
+  }).join('');
+  html += `<div class="overall-story"><span class="overall-label">OVERALL — 総合読み解き</span>${result.overall}</div>`;
+  document.getElementById('story-output').innerHTML = html;
+}
+
+function drawRadar(scores){
+  const ctx = document.getElementById('radar-chart');
+  if(ctx._chart) ctx._chart.destroy();
+  const gc='rgba(255,255,255,0.1)';
+  ctx._chart = new Chart(ctx,{
+    type:'radar',
+    data:{
+      labels:AXIS_INFO.map(a=>a.label),
+      datasets:[{
+        data:AXIS_INFO.map(a=>a.invert?(100-scores[a.key]):scores[a.key]),
+        borderColor:'#7f77dd',
+        backgroundColor:'rgba(127,119,221,0.15)',
+        pointBackgroundColor:AXIS_INFO.map(a=>a.color),
+        pointRadius:5,
+        borderWidth:2
+      }]
+    },
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{r:{
+        min:0,max:100,
+        ticks:{stepSize:25,color:'#555350',font:{size:10},backdropColor:'transparent'},
+        grid:{color:gc},angleLines:{color:gc},
+        pointLabels:{color:'#8a8880',font:{size:11}}
+      }}
+    }
+  });
+}
+
+async function submitForm(){
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '分析中...';
+
+  const sv = getSliderVals();
+  const cmts = getComments();
+  const scores = calcScores(sv);
+  const flags = detectFlags(sv);
+
+  // 状況バッジ
+  document.getElementById('res-ctx-wrap').innerHTML =
+    `<div class="res-ctx">診断目的：${SIT_LABELS[selectedSit]}</div>`;
+
+  // スコアバー
+  const sr = document.getElementById('score-rows');
+  sr.innerHTML='';
+  AXIS_INFO.forEach(ax=>{
+    const display = ax.invert?(100-scores[ax.key]):scores[ax.key];
+    sr.innerHTML+=`
+      <div class="score-row">
+        <div class="score-axis">${ax.label}</div>
+        <div class="score-track"><div class="score-bar" style="width:${display}%;background:${ax.color};"></div></div>
+        <div class="score-num">${display}</div>
+      </div>`;
+  });
+
+  // フラグ
+  document.getElementById('flag-rows').innerHTML = flags.map(f=>
+    `<div class="flag-item"><span class="flag-dot" style="background:${f.c};"></span>${f.t}</div>`
+  ).join('');
+
+  const res = document.getElementById('result');
+  res.classList.add('visible');
+  res.scrollIntoView({behavior:'smooth',block:'start'});
+  setTimeout(()=>drawRadar(scores),300);
+
+  // AI分析
+  try{
+    const prompt = buildPrompt(scores,sv,cmts,selectedSit);
+    const result = await callAI(prompt);
+    renderStory(result);
+  }catch(e){
+    document.getElementById('story-output').innerHTML=
+      `<div style="font-size:13px;color:var(--text3);line-height:1.8;">AI分析を取得できませんでした。<br><small style="font-family:'DM Mono',monospace;">${e.message}</small></div>`;
+  }
+
+  btn.disabled=false;
+  btn.textContent='スコアを算出 ＋ AIストーリー分析';
+}
+
+buildQuestions();
+</script>
+</body>
+</html>
