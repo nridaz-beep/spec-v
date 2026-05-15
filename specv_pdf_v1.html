@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Spec-V 診断結果</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@300;400;500;700&family=Cormorant+Garamond:wght@300;400;500;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+/* ======== TYPE COLOR VARIABLES (JS切替) ======== */
+:root{
+  --gold:#b8943a;--gold-lt:#c8a96e;--gold-pale:#f5f0e4;--gold-border:#e0d0a0;
+  --ink:#1a1714;--ink-sub:#444;--ink-muted:#888;--ink-faint:#bbb;
+  --red:#b03838;--green:#3a8a5a;--blue:#3060a8;
+  --page-bg:#f8f5ef;--white:#fff;--r:3px;
+  /* タイプ別カラー（JSで上書き） */
+  --type-color:#b8943a;
+  --type-pale:#f5f0e4;
+  --type-border:#e0d0a0;
+  --type-bg-main:var(--gold-pale);
+  --type-header-bg:var(--ink);
+  --type-header-fg:var(--gold);
+  --bar-top:3px solid linear-gradient(90deg,var(--gold),var(--gold-lt),#e8c878,var(--gold));
+  --lv-fg:var(--gold);
+  --lv-nm-fg:var(--gold-lt);
+  --comp-tamashii:var(--gold-lt);
+  --comp-ai:var(--green);
+  --comp-safe:var(--blue);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Noto Serif JP',serif;font-weight:300;background:var(--page-bg);color:var(--ink);padding:32px 20px 60px;}
+.a4{width:210mm;height:297mm;background:var(--white);margin:0 auto 28px;box-shadow:0 4px 32px rgba(0,0,0,.10);position:relative;overflow:hidden;}
+.a4::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-bar,linear-gradient(90deg,#888,#aaa,#888));}
+.inner{padding:11mm 13mm 22mm;}
+.pg-head{display:flex;justify-content:space-between;align-items:flex-end;padding-bottom:9px;border-bottom:1px solid var(--gold-border);margin-bottom:16px;}
+.pg-logo{font-family:'Syne',sans-serif;font-size:9px;font-weight:800;letter-spacing:.6em;color:var(--gold);text-transform:uppercase;}
+.pg-meta{display:flex;gap:14px;align-items:center;}
+.pg-date{font-size:9px;color:var(--ink-muted);letter-spacing:.1em;}
+.pg-num{font-family:'Syne',sans-serif;font-size:8px;color:var(--gold);letter-spacing:.2em;border:1px solid var(--gold-border);padding:2px 7px;border-radius:100px;}
+.sec{font-family:'Syne',sans-serif;font-size:7px;font-weight:700;letter-spacing:.5em;color:var(--gold);text-transform:uppercase;padding-bottom:6px;border-bottom:1px solid var(--gold-border);margin-bottom:10px;display:flex;align-items:center;gap:7px;}
+.sec::before{content:'';display:inline-block;width:12px;height:1px;background:var(--gold);flex-shrink:0;}
+.foot{position:absolute;bottom:9mm;left:14mm;right:14mm;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #ede8de;padding-top:5px;}
+.foot-l,.foot-r{font-size:7.5px;color:var(--ink-faint);}
+/* プロフィール */
+.prof{display:flex;border:1px solid var(--gold-border);border-radius:var(--r);overflow:hidden;margin-bottom:9px;background:var(--gold-pale);}
+.pr{flex:1;padding:7px 11px;border-right:1px solid var(--gold-border);}
+.pr:last-child{border-right:none;}
+.pr-l{font-size:6.5px;letter-spacing:.3em;color:var(--gold);text-transform:uppercase;margin-bottom:2px;}
+.pr-v{font-size:10.5px;color:var(--ink-sub);font-weight:500;}
+/* タイプ */
+.type-wrap{display:grid;grid-template-columns:1fr 76px;margin-bottom:10px;border:1px solid var(--type-border);border-radius:var(--r);overflow:hidden;}
+.type-main{padding:14px 16px;background:var(--type-pale);border-right:1px solid var(--type-border);}
+.type-eyebrow{font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.5em;color:var(--type-color);text-transform:uppercase;margin-bottom:3px;}
+.type-name{font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:600;color:var(--type-color);line-height:1;margin-bottom:5px;}
+.type-sub{font-size:10px;color:var(--ink-sub);line-height:1.75;margin-bottom:8px;}
+.type-badge{display:inline-flex;align-items:center;gap:3px;background:var(--white);border:1px solid var(--type-color);border-radius:100px;padding:2px 10px;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:var(--type-color);letter-spacing:.1em;}
+.type-lv{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 8px;background:var(--ink);}
+.lv-l{font-family:'Syne',sans-serif;font-size:6px;letter-spacing:.3em;color:var(--lv-nm-fg);text-transform:uppercase;margin-bottom:1px;}
+.lv-n{font-family:'Cormorant Garamond',serif;font-size:50px;font-weight:700;color:var(--lv-fg);line-height:1;}
+.lv-nm{font-size:6.5px;color:var(--lv-nm-fg);letter-spacing:.08em;margin-top:2px;text-align:center;}
+/* 6軸 */
+.axes{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;margin-bottom:9px;}
+.ax{display:grid;grid-template-columns:52px 1fr 34px;align-items:center;gap:7px;padding:4px 0;border-bottom:1px solid #f0ece2;}
+.ax-l{font-size:10.5px;color:var(--ink-sub);font-weight:500;}
+.ax-bg{background:#ede8de;border-radius:2px;height:6px;overflow:hidden;}
+.ax-f{height:100%;border-radius:2px;}
+.ax-v{font-size:12px;font-weight:700;text-align:right;}
+/* 気質・モード */
+.ks-wrap{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px;}
+.ks-card{border:1px solid var(--gold-border);border-radius:var(--r);overflow:hidden;}
+.ks-head{background:var(--gold-pale);padding:6px 10px;font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.3em;color:var(--gold);text-transform:uppercase;border-bottom:1px solid var(--gold-border);}
+.ks-body{padding:8px 10px;}
+.ks-row{display:grid;grid-template-columns:58px 1fr 26px;align-items:center;gap:5px;margin-bottom:5px;}
+.ks-row:last-child{margin-bottom:0;}
+.ks-n{font-size:9.5px;color:var(--ink-sub);}
+.ks-bg{background:#ede8de;border-radius:2px;height:4px;overflow:hidden;}
+.ks-f{height:100%;border-radius:2px;}
+.ks-p{font-size:8.5px;color:var(--ink-muted);text-align:right;}
+.ks-cmt{font-size:9px;color:var(--ink-sub);line-height:1.65;padding:6px 10px;border-top:1px solid #f0ece2;background:#fdfcf8;}
+/* ストレス */
+.stress{display:flex;align-items:flex-start;gap:8px;background:#fff8f0;border:1px solid #f0d8b0;border-left:3px solid #c07040;border-radius:0 var(--r) var(--r) 0;padding:7px 10px;margin-bottom:8px;}
+.st-ico{font-size:13px;}
+.st-l{font-size:6.5px;letter-spacing:.2em;color:#c07040;text-transform:uppercase;margin-bottom:2px;}
+.st-v{font-size:10.5px;color:#704020;line-height:1.65;}
+/* 総評 */
+.sumbox{background:var(--ink);border-radius:var(--r);padding:12px 16px;display:flex;align-items:flex-start;gap:10px;}
+.sum-l{font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.35em;color:var(--gold-lt);text-transform:uppercase;white-space:nowrap;margin-top:1px;}
+.sum-div{width:1px;background:rgba(200,169,110,.3);align-self:stretch;flex-shrink:0;}
+.sum-t{font-size:10.5px;color:#e8e0cc;line-height:1.95;font-style:italic;}
+/* コンピテンシー */
+.compi-3col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:14px;}
+.cg{border:1px solid var(--gold-border);border-radius:var(--r);overflow:hidden;}
+.cg-head{padding:5px 9px;font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.25em;text-transform:uppercase;border-bottom:1px solid var(--gold-border);}
+.cg-head.t{background:#fdf8ee;color:var(--gold);}
+.cg-head.a{background:#f0faf4;color:var(--green);}
+.cg-head.s{background:#f0f4fc;color:var(--blue);}
+.cr{display:grid;grid-template-columns:1fr 34px 26px;align-items:center;gap:4px;padding:4px 9px;border-bottom:1px solid #f4f0e8;}
+.cr:last-child{border-bottom:none;}
+.cr-l{font-size:9px;color:var(--ink-sub);}
+.cr-bg{background:#ede8de;border-radius:2px;height:4px;overflow:hidden;}
+.cr-f{height:100%;border-radius:2px;}
+.ft{background:var(--gold-lt);}
+.fa{background:var(--green);}
+.fs{background:var(--blue);}
+.fw{background:var(--red);}
+.cr-v{font-size:9.5px;font-weight:700;text-align:right;}
+/* 強み・伸びしろ */
+.shwrap{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px;}
+.sh{border-radius:var(--r);overflow:hidden;}
+.sh-head{padding:6px 10px;font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.25em;text-transform:uppercase;border-bottom:1px solid;}
+.sh.up .sh-head{background:#f0faf4;color:var(--green);border-color:#c0e8cc;}
+.sh.dn .sh-head{background:#fff4f4;color:var(--red);border-color:#f0c0c0;}
+.sh-body{border:1px solid;border-top:none;border-radius:0 0 var(--r) var(--r);}
+.sh.up .sh-body{border-color:#c0e8cc;}
+.sh.dn .sh-body{border-color:#f0c0c0;}
+.sh-item{display:flex;justify-content:space-between;align-items:center;padding:5px 10px;border-bottom:1px solid #f4f0e8;font-size:10px;color:var(--ink-sub);}
+.sh-item:last-child{border-bottom:none;}
+.sh-sc{font-weight:700;font-size:11px;}
+.sh.up .sh-sc{color:var(--green);}
+.sh.dn .sh-sc{color:var(--red);}
+/* 山谷 */
+.yt-wrap{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px;}
+.yt{border-radius:var(--r);padding:7px 10px;}
+.yt.yama{background:#f0faf4;border-left:3px solid var(--green);}
+.yt.tani{background:#fdf8ee;border-left:3px solid var(--gold-lt);}
+.yt-l{font-size:6.5px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:5px;}
+.yt.yama .yt-l{color:var(--green);}
+.yt.tani .yt-l{color:var(--gold);}
+.yt-t{font-size:10px;color:var(--ink-sub);line-height:1.8;}
+/* AI1次 */
+.ai1{border:1px solid var(--gold-border);border-radius:var(--r);overflow:hidden;}
+.ai1-head{background:var(--ink);padding:8px 12px;}
+.ai1-hl{font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.4em;color:var(--gold);text-transform:uppercase;}
+.ai1-body{padding:12px;}
+.ai1-blk{padding-bottom:8px;margin-bottom:8px;border-bottom:1px solid #f0ece2;}
+.ai1-blk:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.ai1-tag{font-size:6.5px;letter-spacing:.2em;color:var(--gold);text-transform:uppercase;margin-bottom:4px;}
+.ai1-t{font-size:10px;color:var(--ink-sub);line-height:1.9;}
+/* PAGE3 2次分析 */
+.sa2{border-radius:var(--r);padding:8px 11px;margin-bottom:7px;}
+.sa2.i1{background:#fdf8ee;border-left:3px solid var(--gold);}
+.sa2.i2{background:#f0f4fc;border-left:3px solid var(--blue);}
+.sa2.i3{background:#f0faf4;border-left:3px solid var(--green);}
+.sa2-l{font-size:6.5px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:5px;}
+.sa2.i1 .sa2-l{color:var(--gold);}
+.sa2.i2 .sa2-l{color:var(--blue);}
+.sa2.i3 .sa2-l{color:var(--green);}
+.sa2-t{font-size:10px;color:var(--ink-sub);line-height:1.85;}
+/* アクション */
+.act-wrap{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;margin-bottom:10px;}
+.act{border-radius:var(--r);padding:8px 10px;}
+.act.do{background:#f0faf4;border:1px solid #c0e8cc;}
+.act.stop{background:#fff4f4;border:1px solid #f0c0c0;}
+.act.env{background:#f0f4fc;border:1px solid #c0d0f0;}
+.act-l{font-size:6.5px;letter-spacing:.2em;text-transform:uppercase;margin-bottom:5px;}
+.act.do .act-l{color:var(--green);}
+.act.stop .act-l{color:var(--red);}
+.act.env .act-l{color:var(--blue);}
+.act-t{font-size:10px;color:var(--ink-sub);line-height:1.8;}
+/* メモ */
+.memo{border:1px dashed var(--gold-border);border-radius:var(--r);padding:12px 14px;}
+.memo-l{font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.35em;color:var(--ink-faint);text-transform:uppercase;margin-bottom:8px;}
+.memo-lines{display:flex;flex-direction:column;gap:16px;}
+.memo-line{border-bottom:1px solid #ede8de;}
+/* 印刷 */
+.screen-only{text-align:center;padding:24px;display:flex;gap:10px;justify-content:center;}
+.btn-print{background:var(--ink);color:var(--gold);border:1px solid var(--gold);border-radius:var(--r);padding:11px 28px;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;letter-spacing:.3em;text-transform:uppercase;cursor:pointer;}
+@media print{
+  @page{size:A4 portrait;margin:0;}
+  html,body{background:#fff;padding:0;margin:0;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .a4{width:210mm;height:297mm;box-shadow:none;margin:0!important;page-break-after:always;overflow:hidden;break-after:page;}
+  .a4:last-of-type{page-break-after:auto;break-after:auto;}
+  .screen-only{display:none!important;}
+}
+</style>
+</head>
+<body>
+
+<script>
+/* ======================================================
+   ★ テストデータ（黎明型・のりんぐさんスペック）
+   実運用時はこのオブジェクトをメールJSONで差し替える
+====================================================== */
+const D = {
+  "timestamp": "2026-05-15T10:00:00+09:00",
+  "age": "40代前半",
+  "position": "独立・フリーランス",
+  "industry": "コンサルティング（経営コンサルタント）",
+  "purpose": "自己理解",
+  "type_name": "黎明型",
+  "type_desc": "魂と愛を兼ね備えた状態。\n環境と承認があれば大きく開花する。",
+  "temperament": "突破性向×跳躍性向",
+  "mode": "発想モード",
+  "stress": "強引・独断 — プレッシャー下では感情が先行し、周囲の意見を聞かずに突き進む傾向が出やすい。自分の崩れパターンを知ることが組織安全性の第一歩。",
+  "level": 8,
+  "level_name": "成熟型人材",
+  "axis_suishinryoku": 6.2,
+  "axis_doku": 5.8,
+  "axis_kaihoudu": 5.4,
+  "axis_jikoniinti": 6.0,
+  "axis_tamashii": 6.5,
+  "axis_ai": 5.6,
+  "comp_shimeikan": 6.8,
+  "comp_vision": 6.5,
+  "comp_seichou": 6.2,
+  "comp_senken": 6.7,
+  "comp_nebari": 6.0,
+  "comp_taisha": 5.8,
+  "comp_kyoukan": 5.5,
+  "comp_shinrai": 6.0,
+  "comp_shounin": 5.2,
+  "comp_kizohu": 5.0,
+  "comp_kouketsu": 6.2,
+  "comp_kanjou": 5.4,
+  "comp_makaseru": 5.0,
+  "comp_kougeki": 5.8,
+  "comp_shinri": 5.5,
+  "comp_tayousei": 5.8,
+  "temp_toppa": 31,
+  "temp_shincho": 17,
+  "temp_junno": 20,
+  "temp_choyaku": 29,
+  "mode_kenbiki": 25,
+  "mode_jitsumu": 26,
+  "mode_shien": 22,
+  "mode_hassou": 27,
+  "ai_summary": "今のあなたは自分の軸と使命をしっかり持ちながら独立コンサルタントとして機能している一方で、他者との情緒的なつながりや感情の開示において次のステージへ進む準備ができている状態です。自己を開き、他者を巻き込む力を少しずつ育てることで、あなたの支援がさらに深く届くフェーズが訪れる可能性が高いと読めます。",
+  "ai1_tag1": "あなたの今の状態",
+  "ai1_txt1": "今のあなたは使命感と先見性を強く保ちながら、独立という環境の中で自分自身をどう開いていくかという課題と向き合っている状態が読める。経営コンサルタントとして高い目的意識を持って動けている一方で、他者との関係性において自分の感情や本音をどこまで出すかというバランスを模索している可能性がある。",
+  "ai1_tag2": "本来の力",
+  "ai1_txt2": "クライアントの未来を見通し、そこへ向かう道筋を示す力が際立っている。使命感と先見的思考の高さは、単なる問題解決を超えて「その企業が本来進むべき方向」を言語化し、経営者に提示できる強みとして機能している可能性が高い。独立環境においても軸がぶれず、自分の信じる価値を提供し続けられる基盤がすでに築かれている。",
+  "ai1_tag3": "正直な指摘",
+  "ai1_txt3": "承認習慣や任せる力といった他者への関わり方に伸びしろがある今、コンサルティングの場面でクライアントの成果を素直に言葉にして返したり、一部の業務を信頼して委ねる余白を持つことが成長の鍵になる可能性がある。感情制御のスコアから、自分の中の違和感や苛立ちを抑え込む傾向も読めるため、長期的な推進力の持続という観点で意識しておくとよい。",
+  "ai1_tag4": "次に意識すること",
+  "ai1_txt4": "次に意識するといいのは「クライアントや協力者に対して、自分の感情や考えをもう一段階開示してみる」ことである。専門性や信頼を保ちながらも、提案の背景にある自分の想いや迷いを少し言葉にしてみることで、相手との関係がより深まり、結果として提案がさらに腹落ちされやすくなる可能性がある。",
+  "yama_txt": "クライアントの未来を見通し、そこへ向かう道筋を示す力が際立っている。使命感と先見的思考の高さは、単なる問題解決を超えて「その企業が本来進むべき方向」を言語化し、経営者に提示できる強みとして機能している可能性が高い。独立環境においても軸がぶれず、自分の信じる価値を提供し続けられる基盤がすでに築かれている。",
+  "tani_txt": "承認習慣や任せる力といった他者への関わり方に伸びしろがある今、クライアントの成果を素直に言葉にして返したり、一部の業務を信頼して委ねる余白を持つことが成長の鍵になる可能性がある。感情コントロールのスコアから、自分の中の違和感や苛立ちを抑え込む傾向も読めるため、長期的に推進力の持続を妨げるリスクも意識しておくとよい。",
+  "deep_input": "いけいけいけいけー！！",
+  "deep_txt1": "使命感6.8・ビジョン6.5・先見的思考6.7という高い数値が示すのは、明確な方向性を持って前進しようとする意志の強さである。一方で「いけいけいけいけー！！」という入力には、自らを鼓舞し続けなければ推進力を維持できない、ある種の「燃料補給の必要性」が読み取れる。承認習慣5.2・帰属意識5.0という相対的な低さは、独立という環境下で自己完結的に進まざるを得ない構造を作り出しており、外部からのフィードバックや共鳴が不足している可能性がある。",
+  "deep_txt2": "言語化されていないのは「共に走る仲間の不在」という孤独感である。高い使命感と先見性を持ちながら、それを受け止め反響してくれる関係性が薄い状態にあり、自分で自分を駆り立てる構造が習慣化している傾向が読める。この「セルフ応援団」スタイルは短期的には機能するが、持続可能性に課題を抱えている可能性がある。",
+  "deep_txt3": "今最も必要なのは「自分の言葉に他者が応答する場」を意図的に設計することである。使命やビジョンを一方的に語るのではなく、それに対して率直な反応が返ってくる関係性——メンターでも同業者コミュニティでもクライアントとの深い対話でも——を週次で確保することで、自己鼓舞ではなく相互作用によって推進力が生まれる状態を作ることができる。",
+  "action_do": "毎週金曜午後に、自分の今週の取り組みと来週の構想を30分かけて特定の誰か（同業者・メンター・信頼できるクライアント）に話し、相手の率直な反応を聞く時間を固定で設ける。",
+  "action_stop": "一人で「やるぞ！」と気合いを入れて自己完結的に突き進むスタイルを減らす。特に重要な意思決定の前に、誰にも相談せず自分だけで答えを出す癖を手放す。",
+  "action_env": "月1回、同じ志向性を持つ独立系コンサルタント2〜3名と「互いの事業を本気でフィードバックし合う場」をオンラインで立ち上げ、承認し合うだけでなく建設的に突っ込み合える関係性を構築する。"
+};
+
+/* ======================================================
+   タイプ別カラー定義
+====================================================== */
+const TYPE_COLORS = {
+  "黎明型": {
+    color: "#b8943a",
+    pale: "#f5f0e4",
+    border: "#e0d0a0",
+    bar: "linear-gradient(90deg,#b8943a,#c8a96e,#e8c878,#b8943a)",
+    lvFg: "#b8943a",
+    lvNmFg: "#c8a96e",
+    badge: "✦ 高貢献候補"
+  },
+  "孤炎型": {
+    color: "#b03838",
+    pale: "#fdf4f4",
+    border: "#f0c0c0",
+    bar: "linear-gradient(90deg,#b03838,#c85050,#b03838)",
+    lvFg: "#e08080",
+    lvNmFg: "#c06060",
+    badge: "⚡ 推進力型"
+  },
+  "潤い型": {
+    color: "#3a8a5a",
+    pale: "#f0faf4",
+    border: "#c0e8cc",
+    bar: "linear-gradient(90deg,#3a8a5a,#60b080,#3a8a5a)",
+    lvFg: "#60c080",
+    lvNmFg: "#80c8a0",
+    badge: "💚 協調型"
+  },
+  "枯渇型": {
+    color: "#666",
+    pale: "#f4f4f4",
+    border: "#cccccc",
+    bar: "linear-gradient(90deg,#888,#aaa,#888)",
+    lvFg: "#bbb",
+    lvNmFg: "#aaa",
+    badge: "⚠ 要環境設計"
+  }
+};
+
+/* ======================================================
+   ヘルパー関数
+====================================================== */
+// バー幅計算（スコア/7*100%）
+function barW(score){ return (score/7*100).toFixed(1)+'%'; }
+
+// 日付フォーマット（ISO→日本語）
+function fmtDate(iso){
+  const d = new Date(iso);
+  return d.getFullYear()+'年'+(d.getMonth()+1)+'月'+d.getDate()+'日';
+}
+
+// パーセント計算（raw値の合計から）
+function calcPct(vals){
+  const total = vals.reduce((a,b)=>a+b,0);
+  if(total===0) return vals.map(()=>0);
+  return vals.map(v=>Math.round(v/total*100));
+}
+
+// コンピテンシーデータ（ラベル・キー・グループ）
+const COMP_DATA = [
+  // 魂（Soul）
+  {label:'使命感・人生観', key:'comp_shimeikan', grp:'t'},
+  {label:'ビジョン志向',   key:'comp_vision',    grp:'t'},
+  {label:'成長欲求',       key:'comp_seichou',   grp:'t'},
+  {label:'先見的思考',     key:'comp_senken',    grp:'t'},
+  {label:'粘り強さ',       key:'comp_nebari',    grp:'t'},
+  // 愛（Love）
+  {label:'他者貢献意志',   key:'comp_taisha',    grp:'a'},
+  {label:'共感力',         key:'comp_kyoukan',   grp:'a'},
+  {label:'信頼構築力',     key:'comp_shinrai',   grp:'a'},
+  {label:'承認・称賛の習慣',key:'comp_shounin',  grp:'a'},
+  {label:'組織への帰属意識',key:'comp_kizohu',   grp:'a'},
+  // 組織安全性
+  {label:'高潔さ・誠実さ', key:'comp_kouketsu',  grp:'s'},
+  {label:'感情コントロール',key:'comp_kanjou',    grp:'s'},
+  {label:'権限移譲・任せる力',key:'comp_makaseru',grp:'s'},
+  {label:'攻撃性のなさ',   key:'comp_kougeki',   grp:'s'},
+  {label:'心理的安全への貢献',key:'comp_shinri',  grp:'s'},
+  {label:'多様性への受容', key:'comp_tayousei',  grp:'s'},
+];
+
+// 閾値でグループカラークラスを決定
+// 6.0以上=正常、5.0未満=要注意(fw)
+function compColorClass(grp, score){
+  if(score < 5.0) return 'fw';
+  if(grp==='t') return 'ft';
+  if(grp==='a') return 'fa';
+  return 'fs';
+}
+function compTextColor(grp, score){
+  if(score < 5.0) return '#b03838';
+  if(grp==='t') return '#b8943a';
+  if(grp==='a') return '#3a8a5a';
+  return '#3060a8';
+}
+
+/* ======================================================
+   メイン描画関数
+====================================================== */
+function render(){
+  const tc = TYPE_COLORS[D.type_name] || TYPE_COLORS["枯渇型"];
+  const dateStr = fmtDate(D.timestamp);
+
+  // CSS変数切替
+  document.documentElement.style.setProperty('--type-color', tc.color);
+  document.documentElement.style.setProperty('--type-pale', tc.pale);
+  document.documentElement.style.setProperty('--type-border', tc.border);
+  document.documentElement.style.setProperty('--lv-fg', tc.lvFg);
+  document.documentElement.style.setProperty('--lv-nm-fg', tc.lvNmFg);
+
+  // ヘッダーバーグラデーション
+  document.querySelectorAll('.a4').forEach(el=>{
+    el.style.setProperty('--accent-bar', tc.bar);
+    // ::before は疑似要素なのでCSS変数で制御
+  });
+
+  // タイトル更新
+  document.title = `Spec-V 診断結果 — ${D.type_name}`;
+
+  // --- 各ページの日付・番号はHTML内にあるので以下でDOMセット ---
+
+  // ページ共通：日付
+  document.querySelectorAll('.pg-date').forEach(el => el.textContent = dateStr);
+
+  // === PAGE 1 ===
+  // プロフィール
+  document.getElementById('p-age').textContent      = D.age;
+  document.getElementById('p-position').textContent = D.position;
+  document.getElementById('p-industry').textContent = D.industry;
+  document.getElementById('p-purpose').textContent  = D.purpose;
+
+  // タイプ
+  document.getElementById('type-name').textContent  = D.type_name;
+  document.getElementById('type-sub').innerHTML     = D.type_desc.replace(/\n/g,'<br>');
+  document.getElementById('type-badge').textContent = tc.badge;
+  document.getElementById('lv-n').textContent       = D.level;
+  document.getElementById('lv-nm').textContent      = D.level_name;
+
+  // 6軸スコア
+  const axisData = [
+    {id:'ax-suishin', label:'推進力', val:D.axis_suishinryoku, color:'#b8943a'},
+    {id:'ax-doku',    label:'毒のなさ',val:D.axis_doku,         color:'#5060a0'},
+    {id:'ax-kaihou',  label:'解放度',  val:D.axis_kaihoudu,     color:'#3a8a5a'},
+    {id:'ax-jiko',    label:'自己認知',val:D.axis_jikoniinti,   color:'#c07040'},
+    {id:'ax-tama',    label:'魂',       val:D.axis_tamashii,     color:'#a02868'},
+    {id:'ax-ai',      label:'愛',       val:D.axis_ai,           color:'#2858a0'},
+  ];
+  axisData.forEach(ax=>{
+    const el = document.getElementById(ax.id);
+    if(!el) return;
+    el.querySelector('.ax-f').style.width = barW(ax.val);
+    el.querySelector('.ax-f').style.background = ax.color;
+    const vEl = el.querySelector('.ax-v');
+    vEl.textContent = ax.val.toFixed(1);
+    // 魂・愛・推進力は強調色
+    if(ax.val >= 5.5) vEl.style.color = ax.color;
+    else vEl.style.color = '#666';
+  });
+
+  // 気質パーセント（突破→跳躍→順応→慎重）
+  const tempVals = [D.temp_toppa, D.temp_choyaku, D.temp_junno, D.temp_shincho];
+  const tempPcts = calcPct(tempVals);
+  const tempEls  = ['temp-toppa','temp-choyaku','temp-junno','temp-shincho'];
+  const tempColors = ['#c07040','#9060d0','#5080c0','#606060'];
+  tempEls.forEach((id,i)=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.querySelector('.ks-f').style.width = tempPcts[i]+'%';
+    el.querySelector('.ks-f').style.background = tempColors[i];
+    el.querySelector('.ks-p').textContent = tempPcts[i]+'%';
+  });
+  // 気質コメント
+  document.getElementById('temp-cmt').textContent = D.temperament
+    ? `${D.temperament}の組み合わせ。`
+    + (D.temp_toppa > 25 || D.temp_choyaku > 25
+       ? '感情エネルギーと好奇心が両輪。変革・新規開拓局面で特に力を発揮する。'
+       : '複数の性向をバランスよく持つ。環境に応じて動き方を変えられる柔軟性がある。')
+    : '';
+
+  // モードパーセント（牽引→実務→支援→発想）
+  const modeVals = [D.mode_kenbiki, D.mode_jitsumu, D.mode_shien, D.mode_hassou];
+  const modePcts = calcPct(modeVals);
+  // 順位でソートして最上位を表示（降順）
+  const modeItems = [
+    {id:'mode-kenbiki', label:'牽引モード', pct:modePcts[0], color:'#5090d0'},
+    {id:'mode-jitsumu', label:'実務モード', pct:modePcts[1], color:'#3060a0'},
+    {id:'mode-shien',   label:'支援モード', pct:modePcts[2], color:'#3a8a5a'},
+    {id:'mode-hassou',  label:'発想モード', pct:modePcts[3], color:'#9060d0'},
+  ].sort((a,b)=>b.pct-a.pct);
+  // DOM更新（固定ID方式）
+  const modeEls = ['mode-kenbiki','mode-jitsumu','mode-shien','mode-hassou'];
+  modeEls.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    const raw = id==='mode-kenbiki' ? modePcts[0]
+              : id==='mode-jitsumu' ? modePcts[1]
+              : id==='mode-shien'   ? modePcts[2]
+              : modePcts[3];
+    const color = id==='mode-kenbiki' ? '#5090d0'
+                : id==='mode-jitsumu' ? '#3060a0'
+                : id==='mode-shien'   ? '#3a8a5a'
+                : '#9060d0';
+    el.querySelector('.ks-f').style.width = raw+'%';
+    el.querySelector('.ks-f').style.background = color;
+    el.querySelector('.ks-p').textContent = raw+'%';
+  });
+  document.getElementById('mode-cmt').textContent =
+    `最も強い動き方は${modeItems[0].label.replace('モード','')}（${modeItems[0].pct}%）。${D.mode}が主軸。`;
+
+  // ストレス
+  document.getElementById('stress-txt').textContent = D.stress;
+
+  // 総評
+  document.getElementById('ai-summary').textContent = D.ai_summary;
+
+  // === PAGE 2 ===
+  // コンピテンシー16項目
+  COMP_DATA.forEach(c=>{
+    const el = document.getElementById('cr-'+c.key);
+    if(!el) return;
+    const score = D[c.key];
+    const fEl = el.querySelector('.cr-f');
+    fEl.style.width = barW(score);
+    fEl.className = 'cr-f ' + compColorClass(c.grp, score);
+    const vEl = el.querySelector('.cr-v');
+    vEl.textContent = score.toFixed(1);
+    vEl.style.color = compTextColor(c.grp, score);
+  });
+
+  // 強み TOP3・伸びしろ TOP3（自動ソート）
+  const allComps = COMP_DATA.map(c=>({label:c.label, val:D[c.key]}));
+  const sorted   = [...allComps].sort((a,b)=>b.val-a.val);
+  const top3     = sorted.slice(0,3);
+  const bot3     = sorted.slice(-3).reverse();
+
+  const shUpBody = document.getElementById('sh-up-body');
+  const shDnBody = document.getElementById('sh-dn-body');
+  shUpBody.innerHTML = top3.map(c=>`
+    <div class="sh-item">
+      <span>${c.label}</span>
+      <span class="sh-sc">${c.val.toFixed(1)}</span>
+    </div>`).join('');
+  shDnBody.innerHTML = bot3.map(c=>`
+    <div class="sh-item">
+      <span>${c.label}</span>
+      <span class="sh-sc">${c.val.toFixed(1)}</span>
+    </div>`).join('');
+
+  // 山谷
+  document.getElementById('yama-txt').textContent = D.yama_txt;
+  document.getElementById('tani-txt').textContent = D.tani_txt;
+
+  // AI1次分析
+  document.getElementById('ai1-mode').textContent =
+    `Primary Analysis — ${D.purpose}モード`;
+  document.getElementById('ai1-tag1').textContent = D.ai1_tag1;
+  document.getElementById('ai1-txt1').textContent = D.ai1_txt1;
+  document.getElementById('ai1-tag2').textContent = D.ai1_tag2;
+  document.getElementById('ai1-txt2').textContent = D.ai1_txt2;
+  document.getElementById('ai1-tag3').textContent = D.ai1_tag3;
+  document.getElementById('ai1-txt3').textContent = D.ai1_txt3;
+  document.getElementById('ai1-tag4').textContent = D.ai1_tag4;
+  document.getElementById('ai1-txt4').textContent = D.ai1_txt4;
+
+  // === PAGE 3：2次分析 ===
+  const has2nd = D.deep_txt1 || D.deep_txt2 || D.deep_txt3;
+  const page3  = document.getElementById('page3');
+  if(!has2nd){
+    page3.style.display = 'none';
+    // ページ番号を2枚に変更
+    document.querySelectorAll('.pg-num').forEach((el,i)=>{
+      const nums = ['01 / 02','02 / 02'];
+      if(i < nums.length) el.textContent = nums[i];
+    });
+  } else {
+    document.getElementById('deep-txt1').textContent    = D.deep_txt1 || '';
+    document.getElementById('deep-txt2').textContent    = D.deep_txt2 || '';
+    document.getElementById('deep-txt3').textContent    = D.deep_txt3 || '';
+    document.getElementById('action-do').textContent    = D.action_do  || '';
+    document.getElementById('action-stop').textContent  = D.action_stop|| '';
+    document.getElementById('action-env').textContent   = D.action_env || '';
+  }
+}
+
+// 描画実行
+document.addEventListener('DOMContentLoaded', render);
+</script>
+
+<!-- ======== PAGE 1 ======== -->
+<div class="a4">
+<div class="inner">
+  <div class="pg-head">
+    <div class="pg-logo">Spec-V Diagnostic Report</div>
+    <div class="pg-meta">
+      <div class="pg-date">---</div>
+      <div class="pg-num">01 / 03</div>
+    </div>
+  </div>
+
+  <div class="prof">
+    <div class="pr"><div class="pr-l">Age</div><div class="pr-v" id="p-age">---</div></div>
+    <div class="pr"><div class="pr-l">Position</div><div class="pr-v" id="p-position">---</div></div>
+    <div class="pr"><div class="pr-l">Industry</div><div class="pr-v" id="p-industry">---</div></div>
+    <div class="pr"><div class="pr-l">Purpose</div><div class="pr-v" id="p-purpose">---</div></div>
+  </div>
+
+  <div class="type-wrap">
+    <div class="type-main">
+      <div class="type-eyebrow">Human Type</div>
+      <div class="type-name" id="type-name">---</div>
+      <div class="type-sub" id="type-sub">---</div>
+      <div class="type-badge" id="type-badge">---</div>
+    </div>
+    <div class="type-lv">
+      <div class="lv-l">Level</div>
+      <div class="lv-n" id="lv-n">-</div>
+      <div class="lv-nm" id="lv-nm">---</div>
+    </div>
+  </div>
+
+  <div class="sec">Six Axes — 6軸スコア</div>
+  <div class="axes">
+    <div>
+      <div class="ax" id="ax-suishin">
+        <div class="ax-l">推進力</div>
+        <div class="ax-bg"><div class="ax-f" style="width:0%"></div></div>
+        <div class="ax-v">-</div>
+      </div>
+      <div class="ax" id="ax-doku">
+        <div class="ax-l">毒のなさ</div>
+        <div class="ax-bg"><div class="ax-f" style="width:0%"></div></div>
+        <div class="ax-v">-</div>
+      </div>
+      <div class="ax" id="ax-kaihou">
+        <div class="ax-l">解放度</div>
+        <div class="ax-bg"><div class="ax-f" style="width:0%"></div></div>
+        <div class="ax-v">-</div>
+      </div>
+    </div>
+    <div>
+      <div class="ax" id="ax-jiko">
+        <div class="ax-l">自己認知</div>
+        <div class="ax-bg"><div class="ax-f" style="width:0%"></div></div>
+        <div class="ax-v">-</div>
+      </div>
+      <div class="ax" id="ax-tama">
+        <div class="ax-l">魂</div>
+        <div class="ax-bg"><div class="ax-f" style="width:0%"></div></div>
+        <div class="ax-v">-</div>
+      </div>
+      <div class="ax" id="ax-ai">
+        <div class="ax-l">愛</div>
+        <div class="ax-bg"><div class="ax-f" style="width:0%"></div></div>
+        <div class="ax-v">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">Behavioral Profile — 行動傾向 &amp; 動き方</div>
+  <div class="ks-wrap">
+    <div class="ks-card">
+      <div class="ks-head">行動傾向（性向）</div>
+      <div class="ks-body">
+        <div class="ks-row" id="temp-toppa">
+          <div class="ks-n">突破性向</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+        <div class="ks-row" id="temp-choyaku">
+          <div class="ks-n">跳躍性向</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+        <div class="ks-row" id="temp-junno">
+          <div class="ks-n">順応性向</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+        <div class="ks-row" id="temp-shincho">
+          <div class="ks-n">慎重性向</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+      </div>
+      <div class="ks-cmt" id="temp-cmt">---</div>
+    </div>
+    <div class="ks-card">
+      <div class="ks-head">動き方の傾向（モード）</div>
+      <div class="ks-body">
+        <div class="ks-row" id="mode-hassou">
+          <div class="ks-n">発想モード</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+        <div class="ks-row" id="mode-jitsumu">
+          <div class="ks-n">実務モード</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+        <div class="ks-row" id="mode-kenbiki">
+          <div class="ks-n">牽引モード</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+        <div class="ks-row" id="mode-shien">
+          <div class="ks-n">支援モード</div>
+          <div class="ks-bg"><div class="ks-f" style="width:0%"></div></div>
+          <div class="ks-p">-%</div>
+        </div>
+      </div>
+      <div class="ks-cmt" id="mode-cmt">---</div>
+    </div>
+  </div>
+
+  <div class="stress">
+    <div class="st-ico">⚡</div>
+    <div>
+      <div class="st-l">Stress Pattern — ストレス時の崩れ方</div>
+      <div class="st-v" id="stress-txt">---</div>
+    </div>
+  </div>
+
+  <div class="sec">Overall — 総評</div>
+  <div class="sumbox">
+    <div class="sum-l">AI Summary</div>
+    <div class="sum-div"></div>
+    <div class="sum-t" id="ai-summary">---</div>
+  </div>
+
+</div>
+<div class="foot">
+  <div class="foot-l">Spec-V — 「いい人じゃないと、組織は腐る。」　©2026 藤田憲之</div>
+  <div class="foot-r">本診断は個人の現在状態を示すものです</div>
+</div>
+</div>
+
+<!-- ======== PAGE 2 ======== -->
+<div class="a4">
+<div class="inner">
+  <div class="pg-head">
+    <div class="pg-logo">Spec-V Diagnostic Report</div>
+    <div class="pg-meta">
+      <div class="pg-date">---</div>
+      <div class="pg-num">02 / 03</div>
+    </div>
+  </div>
+
+  <div class="sec">Competency — コンピテンシー16項目</div>
+  <div class="compi-3col">
+    <div class="cg">
+      <div class="cg-head t">魂（Soul）</div>
+      <div class="cr" id="cr-comp_shimeikan">
+        <div class="cr-l">使命感・人生観</div>
+        <div class="cr-bg"><div class="cr-f ft" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_vision">
+        <div class="cr-l">ビジョン志向</div>
+        <div class="cr-bg"><div class="cr-f ft" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_seichou">
+        <div class="cr-l">成長欲求</div>
+        <div class="cr-bg"><div class="cr-f ft" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_senken">
+        <div class="cr-l">先見的思考</div>
+        <div class="cr-bg"><div class="cr-f ft" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_nebari">
+        <div class="cr-l">粘り強さ</div>
+        <div class="cr-bg"><div class="cr-f ft" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+    </div>
+    <div class="cg">
+      <div class="cg-head a">愛（Love）</div>
+      <div class="cr" id="cr-comp_taisha">
+        <div class="cr-l">他者貢献意志</div>
+        <div class="cr-bg"><div class="cr-f fa" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_kyoukan">
+        <div class="cr-l">共感力</div>
+        <div class="cr-bg"><div class="cr-f fa" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_shinrai">
+        <div class="cr-l">信頼構築力</div>
+        <div class="cr-bg"><div class="cr-f fa" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_shounin">
+        <div class="cr-l">承認・称賛の習慣</div>
+        <div class="cr-bg"><div class="cr-f fa" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_kizohu">
+        <div class="cr-l">組織への帰属意識</div>
+        <div class="cr-bg"><div class="cr-f fa" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+    </div>
+    <div class="cg">
+      <div class="cg-head s">組織安全性</div>
+      <div class="cr" id="cr-comp_kouketsu">
+        <div class="cr-l">高潔さ・誠実さ</div>
+        <div class="cr-bg"><div class="cr-f fs" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_kanjou">
+        <div class="cr-l">感情コントロール</div>
+        <div class="cr-bg"><div class="cr-f fs" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_makaseru">
+        <div class="cr-l">権限移譲・任せる力</div>
+        <div class="cr-bg"><div class="cr-f fs" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_kougeki">
+        <div class="cr-l">攻撃性のなさ</div>
+        <div class="cr-bg"><div class="cr-f fs" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_shinri">
+        <div class="cr-l">心理的安全への貢献</div>
+        <div class="cr-bg"><div class="cr-f fs" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+      <div class="cr" id="cr-comp_tayousei">
+        <div class="cr-l">多様性への受容</div>
+        <div class="cr-bg"><div class="cr-f fs" style="width:0%"></div></div>
+        <div class="cr-v">-</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">Peak &amp; Valley — 強み &amp; 伸びしろ</div>
+  <div class="shwrap">
+    <div class="sh up">
+      <div class="sh-head">▲ 強み TOP 3</div>
+      <div class="sh-body" id="sh-up-body">
+        <!-- JS自動生成 -->
+      </div>
+    </div>
+    <div class="sh dn">
+      <div class="sh-head">▼ 伸びしろ TOP 3</div>
+      <div class="sh-body" id="sh-dn-body">
+        <!-- JS自動生成 -->
+      </div>
+    </div>
+  </div>
+
+  <div class="sec">Peak &amp; Valley Analysis — 山谷分析</div>
+  <div class="yt-wrap">
+    <div class="yt yama">
+      <div class="yt-l">▲ 山（本来の力）</div>
+      <div class="yt-t" id="yama-txt">---</div>
+    </div>
+    <div class="yt tani">
+      <div class="yt-l">▼ 谷（次のステージへの課題）</div>
+      <div class="yt-t" id="tani-txt">---</div>
+    </div>
+  </div>
+
+  <div class="sec">AI Analysis — 1次分析レポート</div>
+  <div class="ai1">
+    <div class="ai1-head">
+      <div class="ai1-hl" id="ai1-mode">Primary Analysis</div>
+    </div>
+    <div class="ai1-body">
+      <div class="ai1-blk">
+        <div class="ai1-tag" id="ai1-tag1">---</div>
+        <div class="ai1-t"  id="ai1-txt1">---</div>
+      </div>
+      <div class="ai1-blk">
+        <div class="ai1-tag" id="ai1-tag2">---</div>
+        <div class="ai1-t"  id="ai1-txt2">---</div>
+      </div>
+      <div class="ai1-blk">
+        <div class="ai1-tag" id="ai1-tag3">---</div>
+        <div class="ai1-t"  id="ai1-txt3">---</div>
+      </div>
+      <div class="ai1-blk">
+        <div class="ai1-tag" id="ai1-tag4">---</div>
+        <div class="ai1-t"  id="ai1-txt4">---</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="foot">
+  <div class="foot-l">Spec-V — 「いい人じゃないと、組織は腐る。」　©2026 藤田憲之</div>
+  <div class="foot-r">本診断は個人の現在状態を示すものです</div>
+</div>
+</div>
+
+<!-- ======== PAGE 3（2次分析あり時のみ表示） ======== -->
+<div class="a4" id="page3">
+<div class="inner">
+  <div class="pg-head">
+    <div class="pg-logo">Spec-V Diagnostic Report</div>
+    <div class="pg-meta">
+      <div class="pg-date">---</div>
+      <div class="pg-num">03 / 03</div>
+    </div>
+  </div>
+
+  <div class="sec">Deep Dive — 2次分析レポート</div>
+  <div class="sa2 i1">
+    <div class="sa2-l">状態の構造</div>
+    <div class="sa2-t" id="deep-txt1">---</div>
+  </div>
+  <div class="sa2 i2">
+    <div class="sa2-l">見えていない課題・強み</div>
+    <div class="sa2-t" id="deep-txt2">---</div>
+  </div>
+  <div class="sa2 i3">
+    <div class="sa2-l">今すぐできる一手</div>
+    <div class="sa2-t" id="deep-txt3">---</div>
+  </div>
+
+  <div class="sec" style="margin-top:14px;">Action Plan — 今日から動く</div>
+  <div class="act-wrap">
+    <div class="act do">
+      <div class="act-l">✦ 明日やること</div>
+      <div class="act-t" id="action-do">---</div>
+    </div>
+    <div class="act stop">
+      <div class="act-l">✦ やめること</div>
+      <div class="act-t" id="action-stop">---</div>
+    </div>
+    <div class="act env">
+      <div class="act-l">✦ 環境改善</div>
+      <div class="act-t" id="action-env">---</div>
+    </div>
+  </div>
+
+  <div class="sec">Consultant Note — コンサルメモ</div>
+  <div class="memo">
+    <div class="memo-l">面談メモ・所見・補足（コンサルタント記入欄）</div>
+    <div class="memo-lines">
+      <div class="memo-line"></div>
+      <div class="memo-line"></div>
+      <div class="memo-line"></div>
+      <div class="memo-line"></div>
+      <div class="memo-line"></div>
+    </div>
+  </div>
+
+</div>
+<div class="foot">
+  <div class="foot-l">Spec-V — 「いい人じゃないと、組織は腐る。」　©2026 藤田憲之</div>
+  <div class="foot-r">⚠️ 本資料は個人・コンサルタント専用。外部開示不可。</div>
+</div>
+</div>
+
+<div class="screen-only">
+  <button class="btn-print" onclick="window.print()">🖨️ PDFで保存する（A4・Chrome推奨）</button>
+</div>
+
+</body>
+</html>
