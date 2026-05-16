@@ -407,10 +407,8 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   // トークン検証
   showGate('認証中...', true);
 
-  fetch('/api/token', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json'},
-    body: JSON.stringify({token, action:'verify'})
+  fetch('/api/token?id=' + encodeURIComponent(token), {
+    method: 'GET'
   })
   .then(r => r.json())
   .then(data => {
@@ -418,16 +416,18 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
       // 有効 → ゲート解除・トークンをセッションに保存
       sessionStorage.setItem('specv_token', token);
       hideGate();
-    } else if(data.reason === 'used'){
+    } else if(data.reason === 'already_used'){
       showGate('このURLはすでに使用済みです。\n診断は1回のみ有効です。', false);
     } else if(data.reason === 'not_found'){
       showGate('無効なURLです。\n担当者にお問い合わせください。', false);
+    } else if(data.reason === 'expired'){
+      showGate('このURLの有効期限が切れています。\n担当者にお問い合わせください。', false);
     } else {
       showGate('エラーが発生しました。\nしばらくしてから再度お試しください。', false);
     }
   })
   .catch(() => {
-    // API接続失敗時はゲート解除（Supabase未接続でも動くようにする）
+    // API接続失敗時はゲート解除
     console.warn('[TokenGate] API接続失敗 → スキップ');
     hideGate();
   });
