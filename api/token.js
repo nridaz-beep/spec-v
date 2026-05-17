@@ -4,9 +4,15 @@
 
 const { createClient } = require('@supabase/supabase-js');
 
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY;
+
 const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  supabaseUrl || 'https://example.supabase.co',
+  supabaseKey || 'missing-key'
 );
 
 module.exports = async function handler(req, res) {
@@ -17,21 +23,80 @@ module.exports = async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
+  const debug = req.query.debug === '1';
+
+  function logDbError(context, error) {
+    console.error(`[token] ${context}`, {
+      message: error && error.message,
+      code: error && error.code,
+      details: error && error.details,
+      hint: error && error.hint
+    });
+  }
+
+  function configStatus() {
+    return {
+      hasSupabaseUrl: Boolean(supabaseUrl),
+      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      hasServiceKey: Boolean(process.env.SUPABASE_SERVICE_KEY),
+      hasAnonKey: Boolean(process.env.SUPABASE_ANON_KEY)
+    };
+  }
+
+  if (!supabaseUrl || !supabaseKey) {
+    console.error('[token] missing Supabase env', configStatus());
+    return res.status(500).json({
+      valid: false,
+      reason: 'server_config_missing',
+      ...(debug ? { debug: configStatus() } : {})
+    });
+  }
+
   // GET /api/token?id=F001
   if (req.method === 'GET') {
     const { id } = req.query;
-    if (!id) {
+    const tokenId = String(id || '').trim().toUpperCase();
+    if (!tokenId) {
       return res.status(400).json({ valid: false, reason: 'token_missing' });
     }
 
     const { data, error } = await supabase
       .from('tokens')
       .select('id, type, status')
-      .eq('id', id.toUpperCase())
-      .single();
+      .eq('id', tokenId)
+      .maybeSingle();
 
-    if (error || !data) {
-      return res.status(200).json({ valid: false, reason: 'not_found' });
+    if (error) {
+      logDbError('GET failed', error);
+      return res.status(500).json({
+        valid: false,
+        reason: 'db_error',
+        ...(debug ? {
+          debug: {
+            query: { table: 'tokens', id: tokenId },
+            error: {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint
+            },
+            env: configStatus()
+          }
+        } : {})
+      });
+    }
+    if (!data) {
+      console.warn('[token] token not found', { id: tokenId });
+      return res.status(200).json({
+        valid: false,
+        reason: 'not_found',
+        ...(debug ? {
+          debug: {
+            query: { table: 'tokens', id: tokenId },
+            env: configStatus()
+          }
+        } : {})
+      });
     }
     if (data.status === 'used') {
       return res.status(200).json({ valid: false, reason: 'already_used' });
@@ -50,21 +115,43 @@ module.exports = async function handler(req, res) {
   // POST /api/token
   if (req.method === 'POST') {
     const { token_id } = req.body;
-    if (!token_id) {
+    const tokenId = String(token_id || '').trim().toUpperCase();
+    if (!tokenId) {
       return res.status(400).json({ success: false, reason: 'token_missing' });
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('tokens')
       .update({
         status: 'used',
         used_at: new Date().toISOString()
       })
-      .eq('id', token_id.toUpperCase())
-      .eq('status', 'unused');
+      .eq('id', tokenId)
+      .eq('status', 'unused')
+      .select('id')
+      .maybeSingle();
 
     if (error) {
-      return res.status(500).json({ success: false, reason: 'db_error' });
+      logDbError('POST failed', error);
+      return res.status(500).json({
+        success: false,
+        reason: 'db_error',
+        ...(debug ? {
+          debug: {
+            query: { table: 'tokens', id: tokenId },
+            error: {
+              message: error.message,
+              code: error.code,
+              details: error.details,
+              hint: error.hint
+            },
+            env: configStatus()
+          }
+        } : {})
+      });
+    }
+    if (!data) {
+      return res.status(409).json({ success: false, reason: 'not_unused_or_not_found' });
     }
     return res.status(200).json({ success: true });
   }
