@@ -1,23 +1,37 @@
 // api/stripe-webhook.js
 // Stripe決済完了 → P版トークン自動発行
-// Vercel Serverless Functions
+// Vercel Serverless Functions (CommonJS)
 
-import Stripe from 'stripe';
-import { createClient } from '@supabase/supabase-js';
+const Stripe = require('stripe');
+const { createClient } = require('@supabase/supabase-js');
 
-const stripe    = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe    = new Stripe(process.env.STRIPE_SECRET_KEY || 'missing-key');
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY;
 const supabase  = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY
+  process.env.SUPABASE_URL || 'https://example.supabase.co',
+  supabaseKey || 'missing-key'
 );
 
-export const config = {
+const config = {
   api: { bodyParser: false }  // Stripe署名検証のためraw bodyが必要
 };
 
-export default async function handler(req, res) {
+async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).end();
+  }
+
+  if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET || !process.env.SUPABASE_URL || !supabaseKey) {
+    console.error('[stripe-webhook] missing env', {
+      hasStripeSecretKey: Boolean(process.env.STRIPE_SECRET_KEY),
+      hasStripeWebhookSecret: Boolean(process.env.STRIPE_WEBHOOK_SECRET),
+      hasSupabaseUrl: Boolean(process.env.SUPABASE_URL),
+      hasServiceRoleKey: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      hasServiceKey: Boolean(process.env.SUPABASE_SERVICE_KEY)
+    });
+    return res.status(500).json({ error: 'server_config_missing' });
   }
 
   // rawボディ取得
@@ -48,7 +62,7 @@ export default async function handler(req, res) {
         const nextId = await getNextTokenId('P');
 
         // 2. Supabaseにトークン保存
-        await supabase.from('tokens').insert({
+        const { error: tokenInsertError } = await supabase.from('tokens').insert({
           id:           nextId,
           type:         'paid',
           status:       'unused',
@@ -56,9 +70,10 @@ export default async function handler(req, res) {
           note:         `Stripe自動発行 / ${session.customer_email || ''}`,
           issued_by:    'stripe_auto'
         });
+        if (tokenInsertError) throw tokenInsertError;
 
         // 3. Stripe決済レコード保存
-        await supabase.from('stripe_sessions').insert({
+        const { error: sessionInsertError } = await supabase.from('stripe_sessions').insert({
           id:             session.id,
           token_id:       nextId,
           amount:         session.amount_total,
@@ -67,6 +82,7 @@ export default async function handler(req, res) {
           customer_email: session.customer_email,
           created_at:     new Date().toISOString()
         });
+        if (sessionInsertError) throw sessionInsertError;
 
         // 4. 受診者にURLメール送信（Resend）
         if (session.customer_email) {
@@ -85,16 +101,21 @@ export default async function handler(req, res) {
   res.status(200).json({ received: true });
 }
 
+module.exports = handler;
+module.exports.config = config;
+
 // ============================================================
 // ヘルパー：次のトークンID取得
 // ============================================================
 async function getNextTokenId(prefix) {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('tokens')
     .select('id')
     .like('id', `${prefix}%`)
     .order('id', { ascending: false })
     .limit(1);
+
+  if (error) throw error;
 
   if (!data || data.length === 0) {
     return `${prefix}001`;
@@ -108,7 +129,7 @@ async function getNextTokenId(prefix) {
 // ヘルパー：メール送信（Resend）
 // ============================================================
 async function sendTokenEmail(email, tokenId) {
-  const url = `https://spec-v.vercel.app/?token=${tokenId}`;
+  const url = `https://spec-v.vercel.app/specv_form_v6_integrated_25.html?token=${tokenId}`;
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
