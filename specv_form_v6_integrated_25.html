@@ -364,14 +364,42 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   <div style="color:#c8a96e;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:0.35em;">SPEC-V</div>
   <div id="tg-msg" style="color:#e8e4f0;font-size:15px;text-align:center;line-height:1.8;max-width:360px;"></div>
   <div id="tg-spinner" style="width:32px;height:32px;border:2px solid #252530;border-top-color:#c8a96e;border-radius:50%;animation:tg-spin 0.8s linear infinite;display:none;"></div>
+  <button id="tg-checkout" type="button" onclick="startCheckout()" style="display:none;border:1px solid rgba(200,169,110,.75);background:#c8a96e;color:#0a0a0f;border-radius:4px;padding:13px 22px;font-family:'Noto Serif JP',serif;font-size:14px;letter-spacing:.04em;cursor:pointer;">Spec-V診断を購入（¥980）</button>
 </div>
 <style>
 @keyframes tg-spin{to{transform:rotate(360deg);}}
 #token-gate[data-visible="true"]{display:flex;}
 #token-gate[data-visible="false"]{display:none;}
+#tg-checkout:disabled{opacity:.65;cursor:wait;}
 </style>
 
 <script>
+async function startCheckout() {
+  const btn = document.getElementById('tg-checkout');
+  if(btn){
+    btn.disabled = true;
+    btn.textContent = '決済ページを準備中...';
+  }
+
+  try{
+    const res = await fetch('/api/create-checkout-session', { method: 'POST' });
+    const data = await res.json();
+
+    if(!res.ok || !data.url){
+      throw new Error(data.error || 'checkout_failed');
+    }
+
+    window.location.href = data.url;
+  }catch(err){
+    console.error('[Checkout] セッション作成失敗', err);
+    if(btn){
+      btn.disabled = false;
+      btn.textContent = 'Spec-V診断を購入（¥980）';
+    }
+    alert('決済ページを開けませんでした。しばらくしてから再度お試しください。');
+  }
+}
+
 (function(){
   // トークンゲート処理
   const params = new URLSearchParams(location.search);
@@ -380,16 +408,19 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   const gate = document.getElementById('token-gate');
   const msg = document.getElementById('tg-msg');
   const spinner = document.getElementById('tg-spinner');
+  const checkoutBtn = document.getElementById('tg-checkout');
 
-  function showGate(text, spin){
+  function showGate(text, spin, checkout){
     gate.setAttribute('data-visible','true');
     gate.style.display='flex';
     msg.textContent = text;
     spinner.style.display = spin ? 'block' : 'none';
+    checkoutBtn.style.display = checkout ? 'inline-block' : 'none';
   }
   function hideGate(){
     gate.setAttribute('data-visible','false');
     gate.style.display='none';
+    checkoutBtn.style.display = 'none';
   }
 
   // DEVモードはゲートスキップ
@@ -400,12 +431,12 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
 
   // トークンなし
   if(!token){
-    showGate('診断を受けるには専用URLが必要です。\n担当者からURLをご確認ください。', false);
+    showGate('診断を受けるには専用URLが必要です。\n購入して診断URLを発行できます。', false, true);
     return;
   }
 
   // トークン検証
-  showGate('認証中...', true);
+  showGate('認証中...', true, false);
 
   fetch('/api/token?id=' + encodeURIComponent(token), {
     method: 'GET'
@@ -417,15 +448,15 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
       sessionStorage.setItem('specv_token', token);
       hideGate();
     } else if(data.reason === 'already_used'){
-      showGate('このURLはすでに使用済みです。\n診断は1回のみ有効です。', false);
+      showGate('このURLはすでに使用済みです。\n診断は1回のみ有効です。', false, false);
     } else if(data.reason === 'not_found'){
-      showGate('無効なURLです。\n担当者にお問い合わせください。', false);
+      showGate('無効なURLです。\n購入して新しい診断URLを発行できます。', false, true);
     } else if(data.reason === 'expired'){
-      showGate('このURLの有効期限が切れています。\n担当者にお問い合わせください。', false);
+      showGate('このURLの有効期限が切れています。\n購入して新しい診断URLを発行できます。', false, true);
     } else if(data.reason === 'server_config_missing' || data.reason === 'db_error'){
-      showGate('認証サーバーの確認中にエラーが発生しました。\n担当者にお問い合わせください。', false);
+      showGate('認証サーバーの確認中にエラーが発生しました。\n担当者にお問い合わせください。', false, false);
     } else {
-      showGate('エラーが発生しました。\nしばらくしてから再度お試しください。', false);
+      showGate('エラーが発生しました。\nしばらくしてから再度お試しください。', false, false);
     }
   })
   .catch(() => {
