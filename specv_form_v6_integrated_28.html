@@ -431,6 +431,7 @@ async function startCheckout() {
   // トークンゲート処理
   const params = new URLSearchParams(location.search);
   const token = params.get('token');
+  const isDev = params.has('dev');
   const gate = document.getElementById('token-gate');
   const msg = document.getElementById('tg-msg');
   const spinner = document.getElementById('tg-spinner');
@@ -462,6 +463,13 @@ async function startCheckout() {
     gate.style.display='none';
     tokenForm.style.display = 'none';
     checkoutWrap.style.display = 'none';
+  }
+
+  // DEVモードはトークン認証をバイパス
+  if(isDev){
+    sessionStorage.setItem('specv_token', 'DEV');
+    hideGate();
+    return;
   }
 
   // トークンなし
