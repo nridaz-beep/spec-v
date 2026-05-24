@@ -16,7 +16,6 @@ const supabase = createClient(
 );
 
 module.exports = async function handler(req, res) {
-  // CORS
   res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -56,6 +55,7 @@ module.exports = async function handler(req, res) {
   if (req.method === 'GET') {
     const { id } = req.query;
     const tokenId = String(id || '').trim().toUpperCase();
+
     if (!tokenId) {
       return res.status(400).json({ valid: false, reason: 'token_missing' });
     }
@@ -71,85 +71,46 @@ module.exports = async function handler(req, res) {
       return res.status(500).json({
         valid: false,
         reason: 'db_error',
-        ...(debug ? {
-          debug: {
-            query: { table: 'tokens', id: tokenId },
-            error: {
-              message: error.message,
-              code: error.code,
-              details: error.details,
-              hint: error.hint
-            },
-            env: configStatus()
-          }
-        } : {})
+        ...(debug ? { debug: { error: { message: error.message, code: error.code }, env: configStatus() } } : {})
       });
-    }
-    if (!data) {
-      console.warn('[token] token not found', { id: tokenId });
-      return res.status(200).json({
-        valid: false,
-        reason: 'not_found',
-        ...(debug ? {
-          debug: {
-            query: { table: 'tokens', id: tokenId },
-            env: configStatus()
-          }
-        } : {})
-      });
-    }
-    if (data.status === 'used') {
-      return res.status(200).json({ valid: false, reason: 'already_used' });
-    }
-    if (data.status === 'expired') {
-      return res.status(200).json({ valid: false, reason: 'expired' });
     }
 
-    return res.status(200).json({
-      valid: true,
-      token_id: data.id,
-      type: data.type
-    });
+    if (!data) return res.status(200).json({ valid: false, reason: 'not_found' });
+    if (data.status === 'used') return res.status(200).json({ valid: false, reason: 'already_used' });
+    if (data.status === 'expired') return res.status(200).json({ valid: false, reason: 'expired' });
+
+    return res.status(200).json({ valid: true, token_id: data.id, type: data.type });
   }
 
   // POST /api/token
   if (req.method === 'POST') {
-    const { token_id } = req.body;
-    const tokenId = String(token_id || '').trim().toUpperCase();
-    if (!tokenId) {
-      return res.status(400).json({ success: false, reason: 'token_missing' });
+    let body = req.body || {};
+
+    if (typeof body === 'string') {
+      try { body = JSON.parse(body || '{}'); }
+      catch (e) { return res.status(400).json({ success: false, reason: 'invalid_json' }); }
     }
+
+    const rawTokenId = body.token_id || body.id || body.token || req.query.id;
+    const tokenId = String(rawTokenId || '').trim().toUpperCase();
+
+    if (!tokenId) return res.status(400).json({ success: false, reason: 'token_missing' });
 
     const { data, error } = await supabase
       .from('tokens')
       .update({ status: 'used' })
       .eq('id', tokenId)
       .eq('status', 'unused')
-      .select('id')
+      .select('id, status')
       .maybeSingle();
 
     if (error) {
       logDbError('POST failed', error);
-      return res.status(500).json({
-        success: false,
-        reason: 'db_error',
-        ...(debug ? {
-          debug: {
-            query: { table: 'tokens', id: tokenId },
-            error: {
-              message: error.message,
-              code: error.code,
-              details: error.details,
-              hint: error.hint
-            },
-            env: configStatus()
-          }
-        } : {})
-      });
+      return res.status(500).json({ success: false, reason: 'db_error' });
     }
-    if (!data) {
-      return res.status(409).json({ success: false, reason: 'not_unused_or_not_found' });
-    }
+
+    if (!data) return res.status(409).json({ success: false, reason: 'not_unused_or_not_found' });
+
     return res.status(200).json({ success: true });
   }
 
