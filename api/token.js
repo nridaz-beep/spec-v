@@ -122,10 +122,7 @@ module.exports = async function handler(req, res) {
 
     const { data, error } = await supabase
       .from('tokens')
-      .update({
-        status: 'used',
-        used_at: new Date().toISOString()
-      })
+      .update({ status: 'used' })
       .eq('id', tokenId)
       .eq('status', 'unused')
       .select('id')

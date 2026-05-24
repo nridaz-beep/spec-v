@@ -17,7 +17,7 @@ const supabase = createClient(
 
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, PUT, OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
@@ -42,7 +42,7 @@ module.exports = async function handler(req, res) {
       const { data, error } = await supabase
         .from('tokens')
         .insert(token)
-        .select('id, type, status, issued_at, used_at, note, issued_by')
+        .select('id, type, status, issued_at, note')
         .single();
 
       if (error) throw error;
@@ -58,18 +58,11 @@ module.exports = async function handler(req, res) {
         .from('tokens')
         .update({ note })
         .eq('id', id)
-        .select('id, type, status, issued_at, used_at, note, issued_by')
+        .select('id, type, status, issued_at, note')
         .single();
 
       if (error) throw error;
       return res.status(200).json({ token: normalizeOutputToken(data) });
-    }
-
-    if (req.method === 'PUT') {
-      const localTokens = Array.isArray(req.body && req.body.tokens) ? req.body.tokens : [];
-      const result = await migrateLocalTokens(localTokens);
-      const tokens = await listTokens();
-      return res.status(200).json({ ...result, tokens });
     }
 
     return res.status(405).json({ error: 'Method not allowed' });
@@ -88,50 +81,11 @@ module.exports = async function handler(req, res) {
 async function listTokens() {
   const { data, error } = await supabase
     .from('tokens')
-    .select('id, type, status, issued_at, used_at, note, issued_by')
+    .select('id, type, status, issued_at, note')
     .order('id', { ascending: true });
 
   if (error) throw error;
   return (data || []).map(normalizeOutputToken);
-}
-
-async function migrateLocalTokens(localTokens) {
-  const normalized = localTokens
-    .map(normalizeInputToken)
-    .filter(t => t.id && t.type);
-
-  if (normalized.length === 0) {
-    return { inserted: 0, updatedNotes: 0 };
-  }
-
-  const ids = normalized.map(t => t.id);
-  const { data: existingRows, error: selectError } = await supabase
-    .from('tokens')
-    .select('id, note')
-    .in('id', ids);
-
-  if (selectError) throw selectError;
-
-  const existingIds = new Set((existingRows || []).map(t => t.id));
-  const toInsert = normalized.filter(t => !existingIds.has(t.id));
-  const toUpdateNotes = normalized.filter(t => existingIds.has(t.id) && t.note);
-
-  if (toInsert.length > 0) {
-    const { error } = await supabase.from('tokens').insert(toInsert);
-    if (error) throw error;
-  }
-
-  let updatedNotes = 0;
-  for (const token of toUpdateNotes) {
-    const { error } = await supabase
-      .from('tokens')
-      .update({ note: token.note })
-      .eq('id', token.id);
-    if (error) throw error;
-    updatedNotes += 1;
-  }
-
-  return { inserted: toInsert.length, updatedNotes };
 }
 
 function normalizeInputToken(raw) {
@@ -143,9 +97,7 @@ function normalizeInputToken(raw) {
     type,
     status,
     issued_at: raw.issued_at || new Date().toISOString(),
-    used_at: raw.used_at || null,
-    note: raw.note || '',
-    issued_by: raw.issued_by || 'admin'
+    note: raw.note || ''
   };
 }
 
@@ -155,9 +107,7 @@ function normalizeOutputToken(token) {
     type: token.type,
     status: token.status || 'unused',
     issued_at: formatDate(token.issued_at),
-    used_at: token.used_at ? formatDate(token.used_at) : '',
-    note: token.note || '',
-    issued_by: token.issued_by || ''
+    note: token.note || ''
   };
 }
 

@@ -366,21 +366,6 @@
   }
   .toast.show { transform: translateY(0); opacity: 1; }
 
-  /* Supabase設定バナー */
-  .setup-banner {
-    background: rgba(184,148,58,0.08);
-    border: 1px solid var(--gold-dim);
-    border-radius: 8px;
-    padding: 14px 20px;
-    margin-bottom: 24px;
-    font-size: 12px;
-    color: var(--gold-dim);
-    font-family: 'DM Mono', monospace;
-    line-height: 1.6;
-  }
-
-  .setup-banner strong { color: var(--gold); }
-
   @media (max-width: 768px) {
     .stats { grid-template-columns: repeat(2, 1fr); }
     .url-cell { display: none; }
@@ -394,13 +379,6 @@
   <div class="logo">SPEC-V <span>/ ADMIN</span></div>
   <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)" id="dateDisplay"></div>
 </header>
-
-<!-- Supabase未設定の場合の案内 -->
-<div class="setup-banner" id="setupBanner">
-  ⚙️ <strong>Supabase未接続</strong>　—　
-  このデモはローカルデータで動作しています。
-  本番運用時は <code>SUPABASE_URL</code> と <code>SUPABASE_ANON_KEY</code> を設定してください。
-</div>
 
 <!-- Stats -->
 <div class="stats">
@@ -491,14 +469,13 @@
 
 <script>
 // ============================================================
-// データストア（Supabase接続前はlocalStorageで代替）
+// データストア
 // ============================================================
-const SUPABASE_URL = '';  // 本番時に設定
-const SUPABASE_KEY = '';  // 本番時に設定
+const ADMIN_TOKENS_API = '/api/admin-tokens';
 const BASE_URL_FREE = 'https://spec-v.vercel.app/main.html';
 const BASE_URL_PAID = 'https://spec-v.vercel.app/main.html';
 
-let tokens = JSON.parse(localStorage.getItem('specv_tokens') || '[]');
+let tokens = [];
 let currentFilter = 'all';
 let currentSearch = '';
 let pendingType = 'free';
@@ -506,23 +483,24 @@ let pendingType = 'free';
 // ============================================================
 // 初期化
 // ============================================================
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('dateDisplay').textContent =
     new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'2-digit', day:'2-digit' });
 
-  // デモデータ（空の場合）
-  if (tokens.length === 0) {
-    tokens = [
-      { id:'F001', type:'free', status:'used',   issued_at:'2026-05-16', used_at:'2026-05-17', note:'津田→山田社長' },
-      { id:'F002', type:'free', status:'unused', issued_at:'2026-05-16', used_at:'', note:'津田→田中社長' },
-      { id:'F003', type:'free', status:'unused', issued_at:'2026-05-16', used_at:'', note:'' },
-    ];
-    saveTokens();
-  }
-
-  renderTable();
-  updateStats();
+  await loadTokens();
 });
+
+async function loadTokens() {
+  try {
+    const data = await requestAdminTokens();
+    tokens = Array.isArray(data.tokens) ? data.tokens : [];
+    renderTable();
+    updateStats();
+  } catch (error) {
+    console.error(error);
+    showToast('トークン一覧を読み込めませんでした');
+  }
+}
 
 // ============================================================
 // テーブル描画
@@ -555,10 +533,10 @@ function renderTable() {
         <td><span class="token-id ${typeClass}">${t.id}</span></td>
         <td>${badge}</td>
         <td><span class="url-cell" title="${url}">${url}</span></td>
-        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${t.issued_at}</td>
-        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${t.used_at || '—'}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${t.issued_at || '—'}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">—</td>
         <td>
-          <input class="note-input" value="${t.note}"
+          <input class="note-input" value="${escapeHtml(t.note || '')}"
             onchange="updateNote('${t.id}', this.value)"
             placeholder="メモ追加">
         </td>
@@ -605,34 +583,44 @@ function closeModal() {
   document.getElementById('issueModal').classList.remove('show');
 }
 
-function issueToken() {
+async function issueToken() {
   const nextId = getNextId(pendingType);
   const note   = document.getElementById('noteInput').value;
   const url    = pendingType === 'free'
     ? `${BASE_URL_FREE}?token=${nextId}`
     : `${BASE_URL_PAID}?token=${nextId}`;
 
-  tokens.push({
-    id: nextId,
-    type: pendingType,
-    status: 'unused',
-    issued_at: new Date().toISOString().slice(0,10),
-    used_at: '',
-    note: note
-  });
+  try {
+    const data = await requestAdminTokens({
+      method: 'POST',
+      body: {
+        id: nextId,
+        type: pendingType,
+        status: 'unused',
+        issued_at: new Date().toISOString(),
+        note
+      }
+    });
 
-  saveTokens();
-  renderTable();
-  updateStats();
-  closeModal();
-  copyToClipboard(url);
-  showToast(`${nextId} 発行！URLをコピーしました`);
+    tokens.push(data.token);
+    renderTable();
+    updateStats();
+    closeModal();
+    copyToClipboard(url);
+    showToast(`${nextId} 発行！URLをコピーしました`);
+  } catch (error) {
+    console.error(error);
+    showToast(`${nextId} を発行できませんでした`);
+  }
 }
 
 function getNextId(type) {
   const prefix = type === 'free' ? 'F' : 'P';
-  const existing = tokens.filter(t => t.type === type);
-  const num = existing.length + 1;
+  const existingNumbers = tokens
+    .filter(t => t.type === type && String(t.id || '').startsWith(prefix))
+    .map(t => Number(String(t.id).slice(1)))
+    .filter(Number.isFinite);
+  const num = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
   return prefix + String(num).padStart(3, '0');
 }
 
@@ -657,9 +645,24 @@ function copyToClipboard(text) {
   });
 }
 
-function updateNote(id, note) {
+async function updateNote(id, note) {
   const t = tokens.find(x => x.id === id);
-  if (t) { t.note = note; saveTokens(); }
+  if (!t) return;
+
+  const previousNote = t.note;
+  t.note = note;
+
+  try {
+    const data = await requestAdminTokens({ method: 'PATCH', body: { id, note } });
+    Object.assign(t, data.token);
+    renderTable();
+    showToast('メモを保存しました');
+  } catch (error) {
+    console.error(error);
+    t.note = previousNote;
+    renderTable();
+    showToast('メモを保存できませんでした');
+  }
 }
 
 function setFilter(f, el) {
@@ -674,10 +677,6 @@ function filterTokens(q) {
   renderTable();
 }
 
-function saveTokens() {
-  localStorage.setItem('specv_tokens', JSON.stringify(tokens));
-}
-
 function showToast(msg) {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -688,7 +687,7 @@ function showToast(msg) {
 function exportCSV() {
   const header = 'ID,タイプ,ステータス,発行日,受診日,メモ';
   const rows = tokens.map(t =>
-    `${t.id},${t.type === 'free' ? 'FREE' : 'PAID'},${t.status === 'used' ? '受診済' : '未使用'},${t.issued_at},${t.used_at || ''},${t.note}`
+    `${t.id},${t.type === 'free' ? 'FREE' : 'PAID'},${t.status === 'used' ? '受診済' : '未使用'},${t.issued_at || ''},,${t.note || ''}`
   );
   const csv = [header, ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -697,6 +696,28 @@ function exportCSV() {
   a.href = url;
   a.download = `specv_tokens_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
+}
+
+async function requestAdminTokens(options = {}) {
+  const response = await fetch(ADMIN_TOKENS_API, {
+    method: options.method || 'GET',
+    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.error || `request_failed_${response.status}`);
+  }
+  return data;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
 }
 
 // モーダル外クリックで閉じる
