@@ -144,8 +144,8 @@ body::before {
 .mode-card.top .mode-pct { color: #7aaae0; }
 
 /* コンピ */
-.compi-chart-wrap { position: relative; height: 120px; margin-bottom: 10px; }
-.compi-labels { display: grid; grid-template-columns: repeat(16, 1fr); gap: 2px; margin-top: 4px; }
+.compi-chart-wrap { position: relative; height: 200px; margin-bottom: 10px; }
+.compi-labels { display: none; }
 .compi-lbl {
   font-size: 9px;
   color: var(--text-muted);
@@ -1016,6 +1016,108 @@ let _isRediag=false; // 再診断フラグ
 let _lastAiText=null;
 let _lastAi2Text=null;
 
+async function markCurrentTokenUsed(){
+  const token = sessionStorage.getItem('specv_token');
+
+  if(!token || token === 'DEV' || window._tokenMarkedUsed) return;
+
+  // 最大3回リトライ（指数バックオフ: 1s, 2s, 4s）
+  for(let attempt=0; attempt<3; attempt++){
+    try{
+      const res = await fetch('/api/token', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ token_id: token })
+      });
+
+      if(res.ok){
+        window._tokenMarkedUsed = true;
+        // 成功したらキューから除去
+        try{
+          const queue = JSON.parse(localStorage.getItem('specv_pending_token')||'[]');
+          const filtered = queue.filter(t => t !== token);
+          localStorage.setItem('specv_pending_token', JSON.stringify(filtered));
+        }catch(e){}
+        return;
+      }
+
+      // 409 (already used) は成功扱い
+      if(res.status === 409){
+        window._tokenMarkedUsed = true;
+        return;
+      }
+
+      console.warn('[Token] 使用済み更新失敗 (attempt '+(attempt+1)+')', res.status);
+    }catch(e){
+      console.warn('[Token] 使用済み更新API接続失敗 (attempt '+(attempt+1)+')', e);
+    }
+
+    // 次の試行前に待機
+    if(attempt < 2){
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+    }
+  }
+
+  // 全リトライ失敗 → localStorageにキューイング（次回起動時に再送）
+  try{
+    const queue = JSON.parse(localStorage.getItem('specv_pending_token')||'[]');
+    if(!queue.includes(token)){
+      queue.push(token);
+      localStorage.setItem('specv_pending_token', JSON.stringify(queue));
+    }
+  }catch(e){}
+}
+
+// 起動時に未送信トークンを再送
+async function retryPendingTokens(){
+  try{
+    const queue = JSON.parse(localStorage.getItem('specv_pending_token')||'[]');
+    if(queue.length === 0) return;
+
+    for(const token of [...queue]){
+      try{
+        const res = await fetch('/api/token', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ token_id: token })
+        });
+        if(res.ok || res.status === 409){
+          const cur = JSON.parse(localStorage.getItem('specv_pending_token')||'[]');
+          localStorage.setItem('specv_pending_token', JSON.stringify(cur.filter(t => t !== token)));
+          console.log('[Token] 遅延送信成功:', token);
+        }
+      }catch(e){
+        console.warn('[Token] 遅延送信失敗:', token, e);
+      }
+    }
+  }catch(e){}
+}
+
+// 起動時に未送信通知を再送
+async function retryPendingNotify(){
+  try{
+    const queue = JSON.parse(localStorage.getItem('specv_pending_notify')||'[]');
+    if(queue.length === 0) return;
+
+    for(const payload of [...queue]){
+      try{
+        const res = await fetch('/api/notify', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if(res.ok){
+          const cur = JSON.parse(localStorage.getItem('specv_pending_notify')||'[]');
+          localStorage.setItem('specv_pending_notify', JSON.stringify(cur.filter(p => p.timestamp !== payload.timestamp)));
+          console.log('[Notify] 遅延送信成功:', payload.timestamp);
+        }
+      }catch(e){
+        console.warn('[Notify] 遅延送信失敗:', e);
+      }
+    }
+  }catch(e){}
+}
+
 // =============================
 // 初期化（?dev判定・PDF準備）
 // =============================
@@ -1024,6 +1126,11 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(devBar && new URLSearchParams(location.search).has('dev')){
     devBar.style.display='flex';
   }
+  // 未送信キューの再送（バックグラウンド）
+  setTimeout(()=>{
+    retryPendingTokens();
+    retryPendingNotify();
+  }, 2000);
 });
 
 // =============================
@@ -1619,7 +1726,21 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       tension:0.3,fill:false,
     }]},
     options:{responsive:true,maintainAspectRatio:false,
-      scales:{y:{min:1,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},x:{display:false}},
+      scales:{
+        y:{min:1,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},
+        x:{
+          display:true,
+          grid:{display:false},
+          ticks:{
+            color:(ctx)=>compi[ctx.index]?.score<=3.5?'#c04848':'#706880',
+            font:{size:9,family:"'Noto Serif JP',serif"},
+            maxRotation:90,
+            minRotation:90,
+            autoSkip:false,
+            padding:4
+          }
+        }
+      },
       plugins:{legend:{display:false}}}
   });
 
@@ -1696,9 +1817,14 @@ async function finishDiag(){
   const kish=calcKishitsu();
   const mode=calcMode();
   const ti=getTypeInfo(scores);
+
   // 1次完了時に保存
   _lastScores=scores; _lastTi=ti; _lastCompi=compi; _lastMode=mode; _lastKish=kish;
   try{localStorage.setItem('sv_scores',JSON.stringify(scores));localStorage.setItem('sv_ti',JSON.stringify(ti));localStorage.setItem('sv_compi',JSON.stringify(compi));localStorage.setItem('sv_mode',JSON.stringify(mode));localStorage.setItem('sv_kish',JSON.stringify(kish));localStorage.setItem('sv_purpose',purpose);localStorage.setItem('sv_profile',JSON.stringify(uProfile));}catch(e){}
+
+  // ★最重要★ 結果計算直後に即送信（AI失敗・ブラウザ閉じ・回線不安定でもこれだけは確実に届ける）
+  // notify APIがサーバー側でトークン使用済み更新も実行する
+  sendDiagnosisData(scores,ti,compi,kish,mode,null,'',null);
 
   // localStorage保存（Before/After安全設計）
   const saveData={
@@ -1862,9 +1988,9 @@ async function runSecondAnalysis(){
 
     document.getElementById('secondAnalysisLoading').style.display='none';
     document.getElementById('secondAnalysisBlocks').style.display='block';
-    btn.textContent='再分析する（コメントを変えて）';
-    btn.disabled=false;
-    btn.style.opacity='1';
+    btn.textContent='分析完了';
+    btn.disabled=true;
+    btn.style.display='none';
   }catch(e){
     console.error(e);
     document.getElementById('secondAnalysisLoading').style.display='none';
@@ -1908,6 +2034,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
 
     const payload={
       timestamp:new Date().toISOString(),
+      token_id: sessionStorage.getItem('specv_token') || '', // サーバー側で使用済み更新に使う
       // プロフィール
       age:uProfile.age||'',
       position:uProfile.role||'',
@@ -1979,13 +2106,41 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
       action_env:deepSec?.ACTION_ENV||'',
     };
 
-    // 非同期で投げる（失敗しても画面に影響なし）
-    fetch('/api/notify',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(payload),
-    }).catch(()=>{});
+    // リトライ+キュー付き送信（失敗しても画面に影響なし）
+    sendNotifyWithRetry(payload);
   }catch(e){/* 無視 */}
+}
+
+// notify送信（リトライ+キュー付き）
+async function sendNotifyWithRetry(payload){
+  for(let attempt=0; attempt<3; attempt++){
+    try{
+      const res = await fetch('/api/notify',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(payload),
+      });
+      if(res.ok) return;
+    }catch(e){
+      console.warn('[Notify] 送信失敗 (attempt '+(attempt+1)+')', e);
+    }
+    if(attempt < 2){
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, attempt)));
+    }
+  }
+
+  // 全リトライ失敗 → キューイング
+  try{
+    const queue = JSON.parse(localStorage.getItem('specv_pending_notify')||'[]');
+    // 同じtimestampは重複させない
+    if(!queue.find(p => p.timestamp === payload.timestamp)){
+      queue.push(payload);
+      // キューは最大10件まで（古いの捨てる）
+      if(queue.length > 10) queue.shift();
+      localStorage.setItem('specv_pending_notify', JSON.stringify(queue));
+      console.log('[Notify] キューイング:', payload.timestamp);
+    }
+  }catch(e){}
 }
 
 // =============================
