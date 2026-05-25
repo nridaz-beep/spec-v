@@ -1,4 +1,72 @@
-export default async function handler(req, res) {
+// api/notify.js
+// 診断完了通知API（メール送信 + トークン使用済み更新をサーバー側で完結）
+// クライアント任せにしないことで、ネットワーク不安定・ブラウザ閉じ・JSエラーの影響を受けない
+
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SUPABASE_ANON_KEY;
+
+const supabase = createClient(
+  supabaseUrl || 'https://example.supabase.co',
+  supabaseKey || 'missing-key'
+);
+
+// Resendメール送信（リトライ付き）
+async function sendMailWithRetry(apiKey, payload, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) return { ok: true };
+      const text = await res.text();
+      console.warn(`[Notify] Resend失敗 (attempt ${i+1}): ${res.status} ${text}`);
+    } catch (e) {
+      console.warn(`[Notify] Resend接続失敗 (attempt ${i+1}):`, e.message);
+    }
+    if (i < maxRetries - 1) {
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+    }
+  }
+  return { ok: false };
+}
+
+// トークン使用済み更新（リトライ付き）
+async function markTokenUsedWithRetry(tokenId, maxRetries = 3) {
+  if (!tokenId || tokenId === 'DEV') return { ok: true, skipped: true };
+
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const { data, error } = await supabase
+        .from('tokens')
+        .update({ status: 'used' })
+        .eq('id', String(tokenId).trim().toUpperCase())
+        .in('status', ['unused', 'used']) // 既にusedでも成功扱い
+        .select('id, status')
+        .maybeSingle();
+
+      if (!error) return { ok: true, data };
+      console.warn(`[Notify] Token更新失敗 (attempt ${i+1}):`, error.message);
+    } catch (e) {
+      console.warn(`[Notify] Token更新接続失敗 (attempt ${i+1}):`, e.message);
+    }
+    if (i < maxRetries - 1) {
+      await new Promise(r => setTimeout(r, 1000 * Math.pow(2, i)));
+    }
+  }
+  return { ok: false };
+}
+
+module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -7,21 +75,33 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
   try {
-    const data = req.body;
+    let data = req.body;
+    if (typeof data === 'string') {
+      try { data = JSON.parse(data || '{}'); }
+      catch (e) { return res.status(400).json({ ok: false, reason: 'invalid_json' }); }
+    }
+
     const apiKey = process.env.RESEND_API_KEY;
     const toEmail = process.env.NOTIFY_EMAIL;
+    const d = data || {};
 
-    // 環境変数なければ無視（診断には影響しない）
-    if (!apiKey || !toEmail) return res.status(200).json({ ok: true });
+    // === 1. トークン使用済み更新（サーバー側で確実に実行） ===
+    let tokenResult = { ok: true, skipped: true };
+    if (d.token_id) {
+      tokenResult = await markTokenUsedWithRetry(d.token_id);
+    }
 
-    const d = data;
-    const subject = `【Spec-V新規診断】${d.type_name || '?'} / ${d.age || '?'} / ${d.industry || '?'}`;
+    // === 2. メール送信 ===
+    let mailResult = { ok: true, skipped: true };
+    if (apiKey && toEmail) {
+      const subject = `【Spec-V新規診断】${d.type_name || '?'} / ${d.age || '?'} / ${d.industry || '?'}`;
 
-    const body = `
+      const body = `
 新規診断が完了しました。
 
 ■ 基本情報
 日時：${d.timestamp}
+トークンID：${d.token_id || '(DEV/なし)'}
 年齢：${d.age}
 職位：${d.position}
 業界：${d.industry}
@@ -53,28 +133,31 @@ ${d.type_desc}
 ■ 2次入力
 ${d.deep_input || '（なし）'}
 
+■ 処理結果
+トークン使用済み更新：${tokenResult.ok ? 'OK' : 'NG（要手動確認）'}
+
 ■ 全データJSON（PDF生成用）
 ${JSON.stringify(d, null, 2)}
 `.trim();
 
-    await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
+      mailResult = await sendMailWithRetry(apiKey, {
         from: 'Spec-V <noreply@resend.dev>',
         to: [toEmail],
         subject,
         text: body,
-      }),
-    });
+      });
+    }
 
-    return res.status(200).json({ ok: true });
+    // 200を返す（クライアント側のリトライ判断材料として詳細も返す）
+    return res.status(200).json({
+      ok: true,
+      token: tokenResult,
+      mail: mailResult,
+    });
 
   } catch (err) {
     console.error('notify error:', err);
-    return res.status(200).json({ ok: true }); // 失敗しても診断に影響させない
+    // 500ではなく200で返す（クライアントのリトライループ防止＋画面影響なし）
+    return res.status(200).json({ ok: false, error: err.message });
   }
-}
+};
