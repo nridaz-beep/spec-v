@@ -353,8 +353,29 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   .ki-name, .mode-name { color: #222 !important; }
   .ki-bar-bg, .mode-bar-bg { background: #e0e0e0 !important; }
 
+  /* セクションブロック全般を白背景に */
+  .section-block { background: #fff !important; border: 1px solid #e8e8e8 !important; }
+  .compi-chart-wrap { background: #fff !important; }
+  .ai-section { background: #fff !important; border: 1px solid #e8e8e8 !important; }
+
   /* ページ区切り */
   .print-break { page-break-after: always; }
+
+  /* 山谷TOP2カード（印刷時は白背景・可視色に上書き） */
+  .sc-card.str {
+    background: #f0faf4 !important;
+    border: 1px solid #80c0a0 !important;
+  }
+  .sc-card.wk {
+    background: #fff0f0 !important;
+    border: 1px solid #d09090 !important;
+  }
+  .sc-card.str .sc-lbl { color: #2a6040 !important; }
+  .sc-card.wk .sc-lbl { color: #802020 !important; }
+  .sc-card.str .sc-item { color: #333 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+  .sc-card.wk .sc-item { color: #333 !important; border-bottom-color: rgba(0,0,0,0.08) !important; }
+  .sc-card.str .sc-item::before { background: #3a8a5a !important; }
+  .sc-card.wk .sc-item::before { background: #a03030 !important; }
 }
 </style>
 
@@ -1676,9 +1697,11 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       backgroundColor:'rgba(200,169,110,0.12)',borderColor:'#c8a96e',borderWidth:2,
       pointBackgroundColor:'#c8a96e',pointBorderColor:'#0a0a0f',pointBorderWidth:2,pointRadius:5,
     }]},
-    options:{responsive:true,scales:{r:{min:0,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10},backdropColor:'transparent'},grid:{color:'rgba(255,255,255,0.04)'},angleLines:{color:'rgba(255,255,255,0.04)'},pointLabels:{color:'#e8e4f0',font:{size:12,family:"'Noto Serif JP',serif"}}}},plugins:{legend:{display:false}}}
+    options:{
+      animation:{onComplete:function(){try{const img=document.getElementById('radarPrintImg');if(img)img.src=this.toBase64Image();}catch(e){}}},
+      responsive:true,scales:{r:{min:0,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10},backdropColor:'transparent'},grid:{color:'rgba(255,255,255,0.04)'},angleLines:{color:'rgba(255,255,255,0.04)'},pointLabels:{color:'#e8e4f0',font:{size:12,family:"'Noto Serif JP',serif"}}}},plugins:{legend:{display:false}}}
   });
-  // 印刷用：描画完了後にbase64imgをセット
+  // 印刷用：描画完了後にbase64imgをセット（初期化時）
   setTimeout(()=>{
     try{
       const radarImg=document.getElementById('radarPrintImg');
@@ -1740,17 +1763,20 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       pointRadius:compi.map(d=>d.score<=3.5?7:5),
       tension:0.3,fill:false,
     }]},
-    options:{responsive:true,maintainAspectRatio:false,
+    options:{
+      animation:{onComplete:function(){try{const img=document.getElementById('compiPrintImg');if(img)img.src=this.toBase64Image();}catch(e){}}},
+      responsive:true,maintainAspectRatio:false,
       scales:{
         y:{min:1,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10}},grid:{color:'rgba(255,255,255,0.04)'}},
         x:{
           display:true,
           grid:{display:false},
           ticks:{
+            callback:function(val,idx){return(compi[idx]?.label||'').split('');},
             color:(ctx)=>compi[ctx.index]?.score<=3.5?'#c04848':'#706880',
             font:{size:9,family:"'Noto Serif JP',serif"},
-            maxRotation:90,
-            minRotation:90,
+            maxRotation:0,
+            minRotation:0,
             autoSkip:false,
             padding:4
           }
@@ -1758,13 +1784,23 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       },
       plugins:{legend:{display:false}}}
   });
-  // 印刷用：描画完了後にbase64imgをセット
+  // 印刷用：描画完了後にbase64imgをセット（初期化時）
   setTimeout(()=>{
     try{
       const compiImg=document.getElementById('compiPrintImg');
       if(compiImg&&cChart)compiImg.src=cChart.toBase64Image();
     }catch(e){console.warn('[Spec-V] compi img変換失敗',e);}
   },500);
+
+  // 印刷直前に確実にimgをセット（Ctrl+P / onbeforeprint対応）
+  window.onbeforeprint=function(){
+    try{
+      const radarImg=document.getElementById('radarPrintImg');
+      if(radarImg&&rChart)radarImg.src=rChart.toBase64Image();
+      const compiImg=document.getElementById('compiPrintImg');
+      if(compiImg&&cChart)compiImg.src=cChart.toBase64Image();
+    }catch(e){console.warn('[Spec-V] onbeforeprint img変換失敗',e);}
+  };
 
   // 強み・伸びしろ
   const srt=[...compi].sort((a,b)=>b.score-a.score);
