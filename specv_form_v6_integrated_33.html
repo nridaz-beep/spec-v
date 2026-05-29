@@ -335,11 +335,13 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   /* スコアテキスト */
   .score-val, .axis-val { color: #222 !important; }
 
-  /* レーダーチャートは非表示（印刷で崩れるため） */
-  #radarChart, .radar-wrap { display: none !important; }
+  /* レーダーチャート：印刷時はcanvas非表示・img表示 */
+  #radarChart { display: none !important; }
+  #radarPrintImg { display: block !important; max-width: 260px; margin: 0 auto; }
 
-  /* コンピ波形も非表示 */
-  #compiChart, .compi-wrap { display: none !important; }
+  /* コンピ波形：印刷時はcanvas非表示・img表示 */
+  #compiChart { display: none !important; }
+  #compiPrintImg { display: block !important; width: 100%; }
 
   /* AIコメントブロック */
   .ai-block { background: #faf8f4 !important; border: 1px solid #e0d0a8 !important; margin-bottom: 10px !important; padding: 12px 14px !important; page-break-inside: avoid; }
@@ -682,7 +684,10 @@ async function startCheckout() {
     </div>
     <div class="section-block">
       <span class="sec-title">Radar Chart — 6軸俯瞰</span>
-      <div class="radar-wrap"><canvas id="radarChart"></canvas></div>
+      <div class="radar-wrap">
+        <canvas id="radarChart"></canvas>
+        <img id="radarPrintImg" style="display:none;max-width:260px;margin:0 auto;" alt="レーダーチャート">
+      </div>
     </div>
     <div class="section-block">
       <span class="sec-title">Temperament — 行動傾向</span>
@@ -697,7 +702,10 @@ async function startCheckout() {
     </div>
     <div class="section-block">
       <span class="sec-title">Competency — 16項目スコア</span>
-      <div class="compi-chart-wrap"><canvas id="compiChart"></canvas></div>
+      <div class="compi-chart-wrap">
+        <canvas id="compiChart"></canvas>
+        <img id="compiPrintImg" style="display:none;width:100%;" alt="コンピテンシーチャート">
+      </div>
       <div class="compi-labels" id="compiLabels"></div>
       <p style="font-size:11px;color:var(--text-muted);margin-top:14px;padding-top:12px;border-top:1px solid var(--border);">🟡 魂　🟢 愛　🔵 組織安全性</p>
     </div>
@@ -1142,7 +1150,7 @@ function openPrintPage(){
 
   const s=_lastScores,ti=_lastTi,compi=_lastCompi;
   const date=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
-  const tcols={黎明型:'#b8943a',孤炎型:'#b03838',潤い型:'#3a8a5a',枯渇型:'#777'};
+  const tcols={黎明型:'#b8943a',孤炎型:'#b03838',潤い型:'#3a8a5a',静水型:'#2a5a7a'};
   const tcol=Object.entries(tcols).find(([k])=>ti.q.includes(k))?.[1]||'#b8943a';
 
   // バー生成
@@ -1544,12 +1552,12 @@ function calcLv(s){
   return{raw:r1(raw),lv};
 }
 function getTypeInfo(s){
-  const tH=s.tamashii>=5.0, aH=s.ai>=5.0;
+  const tH=s.tamashii>=4.8, aH=s.ai>=4.8;
   let q,sub,bc,gc;
   if(tH&&aH){q='黎明型';sub='魂と愛を兼ね備えた状態。環境と承認があれば大きく開花する。';bc='rgba(200,169,110,0.4)';gc='rgba(200,169,110,0.06)';}
   else if(tH&&!aH){q='孤炎型';sub='使命感と意志は強い。人への眼差しを育てることで真の推進力になる。';bc='rgba(192,72,72,0.4)';gc='rgba(192,72,72,0.05)';}
   else if(!tH&&aH){q='潤い型';sub='人を支える力がある。自分自身の方向性とビジョンを育てることで化ける。';bc='rgba(80,160,112,0.4)';gc='rgba(80,160,112,0.05)';}
-  else{q='枯渇型';sub='意味とエネルギーの再構築が必要な状態。環境改善が最優先。';bc='rgba(120,120,120,0.3)';gc='rgba(120,120,120,0.03)';}
+  else{q='静水型';sub='内に静かにエネルギーを蓄えている状態。流れ出す経路を作ることで動き出す。';bc='rgba(42,90,122,0.4)';gc='rgba(42,90,122,0.05)';}
   const{lv}=calcLv(s);
   return{q,sub,bc,gc,lv,lvN:LV_NAMES[lv].n,lvS:LV_NAMES[lv].s};
 }
@@ -1593,7 +1601,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   const tc=document.getElementById('typeCard');
   tc.style.border=`1px solid ${ti.bc}`;
   tc.style.background=`linear-gradient(135deg,var(--surface) 60%,${ti.gc})`;
-  const accentMap={'黎明型':'var(--accent)','孤炎型':'var(--red)','潤い型':'var(--green)','枯渇型':'#888'};
+  const accentMap={'黎明型':'var(--accent)','孤炎型':'var(--red)','潤い型':'var(--green)','静水型':'#4a8aaa'};
   const ac=accentMap[ti.q];
   document.getElementById('tcEyebrow').textContent='総合タイプ — Soul × Love Matrix';
   document.getElementById('tcEyebrow').style.color=ac;
@@ -1670,6 +1678,13 @@ function showResult(scores,ti,compi,kish,mode,aiText){
     }]},
     options:{responsive:true,scales:{r:{min:0,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10},backdropColor:'transparent'},grid:{color:'rgba(255,255,255,0.04)'},angleLines:{color:'rgba(255,255,255,0.04)'},pointLabels:{color:'#e8e4f0',font:{size:12,family:"'Noto Serif JP',serif"}}}},plugins:{legend:{display:false}}}
   });
+  // 印刷用：描画完了後にbase64imgをセット
+  setTimeout(()=>{
+    try{
+      const radarImg=document.getElementById('radarPrintImg');
+      if(radarImg&&rChart)radarImg.src=rChart.toBase64Image();
+    }catch(e){console.warn('[Spec-V] radar img変換失敗',e);}
+  },500);
 
   // 気質
   const KO=['突破性向','慎重性向','順応性向','跳躍性向'];
@@ -1743,6 +1758,13 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       },
       plugins:{legend:{display:false}}}
   });
+  // 印刷用：描画完了後にbase64imgをセット
+  setTimeout(()=>{
+    try{
+      const compiImg=document.getElementById('compiPrintImg');
+      if(compiImg&&cChart)compiImg.src=cChart.toBase64Image();
+    }catch(e){console.warn('[Spec-V] compi img変換失敗',e);}
+  },500);
 
   // 強み・伸びしろ
   const srt=[...compi].sort((a,b)=>b.score-a.score);
@@ -1817,10 +1839,14 @@ async function finishDiag(){
   const kish=calcKishitsu();
   const mode=calcMode();
   const ti=getTypeInfo(scores);
-  await markCurrentTokenUsed();
+
   // 1次完了時に保存
   _lastScores=scores; _lastTi=ti; _lastCompi=compi; _lastMode=mode; _lastKish=kish;
   try{localStorage.setItem('sv_scores',JSON.stringify(scores));localStorage.setItem('sv_ti',JSON.stringify(ti));localStorage.setItem('sv_compi',JSON.stringify(compi));localStorage.setItem('sv_mode',JSON.stringify(mode));localStorage.setItem('sv_kish',JSON.stringify(kish));localStorage.setItem('sv_purpose',purpose);localStorage.setItem('sv_profile',JSON.stringify(uProfile));}catch(e){}
+
+  // ★最重要★ 結果計算直後に即送信（AI失敗・ブラウザ閉じ・回線不安定でもこれだけは確実に届ける）
+  // notify APIがサーバー側でトークン使用済み更新も実行する
+  sendDiagnosisData(scores,ti,compi,kish,mode,null,'',null);
 
   // localStorage保存（Before/After安全設計）
   const saveData={
@@ -2030,6 +2056,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
 
     const payload={
       timestamp:new Date().toISOString(),
+      token_id: sessionStorage.getItem('specv_token') || '', // サーバー側で使用済み更新に使う
       // プロフィール
       age:uProfile.age||'',
       position:uProfile.role||'',
@@ -2268,6 +2295,31 @@ ${diffLines}
   return data.content[0].text;
 }
 
+// =============================
+// 回答スタイル分析（σ補正）
+// =============================
+function calcPersonalSigma(answersArr){
+  const scores=answersArr.filter(v=>typeof v==='number');
+  if(scores.length===0)return 0;
+  const mean=scores.reduce((s,v)=>s+v,0)/scores.length;
+  const variance=scores.reduce((s,v)=>s+(v-mean)**2,0)/scores.length;
+  return Math.sqrt(variance);
+}
+function getAnswerStyle(sigma){
+  if(sigma<1.0)return{style:'center',label:'中央寄り回答者',sigma};
+  if(sigma>1.8)return{style:'extreme',label:'両端回答者',sigma};
+  return{style:'standard',label:'標準回答者',sigma};
+}
+function getStyleContextPrompt(answerStyle){
+  if(answerStyle.style==='center'){
+    return`\n\n【重要：回答スタイルの文脈】\nこの受診者は回答スタイルが中央寄り(個人σ=${answerStyle.sigma.toFixed(2)})です。極端な選択を避ける慎重な回答傾向を持つ方であり、このスコア構造における突出値(5.5以上)は通常以上に「強い肯定」を意味するものとして読んでください。低スコア項目は「絶対的な欠如」ではなく「相対的に弱い」と解釈してください。スコアが全体的に圧縮されているため、項目間の相対的な突出パターンに注目すること。思慮深く慎重なタイプである可能性が高いため、断定的な表現より含みを持たせた表現を選ぶ。「枯渇」「不足」「欠けている」等のネガティブ断定語は避ける。`.trim();
+  }
+  if(answerStyle.style==='extreme'){
+    return`\n\n【重要：回答スタイルの文脈】\nこの受診者は回答スタイルが両端寄り(個人σ=${answerStyle.sigma.toFixed(2)})です。1または7を選びやすい明確な意思表示傾向を持つ方です。6.5以上は「強い確信を持った肯定」、2.5以下は「明確な否定・低さ」として読む。断定的・直接的な表現が本人に届きやすい。`.trim();
+  }
+  return'';
+}
+
 async function callAI(scores,ti,compi){
   const purLblAI={hire:'採用判断',grow:'組織育成',self:'自己理解'};
   const PB={
@@ -2276,7 +2328,7 @@ async function callAI(scores,ti,compi){
 評価軸重み：魂★5・毒のなさ★5・愛★4・自己認知★4・解放度★3
 【SUMMARY】採用担当者視点で2〜3文。「入れたらどういう人物か」を率直に。
 【STRENGTH】採用したときに組織に何をもたらすか。強みを具体的なシーン・役割で。2〜3文。
-【RISK】採用時に気をつけるべき点。枯渇型・孤炎型は組織リスクを率直に。問題なければ伸びしろとして。2〜3文。
+【RISK】採用時に気をつけるべき点。静水型・孤炎型は組織リスクを率直に。問題なければ伸びしろとして。2〜3文。
 【VERDICT】どういうポジション・環境なら活きるか。具体的に。2〜3文。
 【OVERALL】スコア全体を統合した総括。「今この人はどういう状態にいて、採用するとどうなるか」を1〜2文で端的に。`,
     grow:`## 分析目的：組織育成
@@ -2297,6 +2349,13 @@ async function callAI(scores,ti,compi){
 【OVERALL】スコア全体を統合した総括。「今の自分の現在地と、次に向かう方向」を1〜2文で端的に。`,
   };
   const ct=compi.map(d=>`${d.label}:${d.score}`).join(' / ');
+
+  // σ補正：回答スタイル分析
+  const sigma=calcPersonalSigma(answers);
+  const answerStyle=getAnswerStyle(sigma);
+  const styleContext=getStyleContextPrompt(answerStyle);
+  console.log('[Spec-V] Personal σ:',sigma.toFixed(3),'/ Answer Style:',answerStyle.style);
+
   const prompt=`あなたはSpec-Vという人材診断ツールの分析AIです。
 「この人はどんな人か」ではなく「今どういう状態にあり、なぜそうなっているか」を読むツールです。
 
@@ -2325,7 +2384,7 @@ async function callAI(scores,ti,compi){
 総合タイプ：${ti.q} / Lv${ti.lv}（${ti.lvN}）
 コンピテンシー詳細：${ct}
 
-${PB[purpose]||PB.self}`;
+${PB[purpose]||PB.self}${styleContext}`;
 
   const res=await fetch('/api/analyze',{
     method:'POST',headers:{'Content-Type':'application/json'},
