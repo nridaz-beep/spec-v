@@ -1610,6 +1610,77 @@ function getTypeInfo(s){
 }
 
 // =============================
+// 印刷用レーダー画像生成（白背景・濃い線で確実に焼く）
+// =============================
+function renderRadarPrintImg(scores){
+  try{
+    const SIZE=560;
+    const off=document.createElement('canvas');
+    off.width=SIZE;off.height=SIZE;
+    off.style.position='fixed';off.style.left='-99999px';off.style.top='0';
+    off.style.width=SIZE+'px';off.style.height=SIZE+'px';
+    document.body.appendChild(off);
+
+    // 白背景を線の「下」に確実に入れる（透明背景だと白用紙で線が消える対策）
+    // destination-overで既存描画の下に白を差し込む。before/after両方で保険。
+    const whiteBG={
+      id:'whiteBG',
+      beforeDraw:(chart)=>{
+        const ctx=chart.canvas.getContext('2d');
+        ctx.save();
+        ctx.globalCompositeOperation='destination-over';
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,0,chart.width,chart.height);
+        ctx.restore();
+      },
+      afterDraw:(chart)=>{
+        const ctx=chart.canvas.getContext('2d');
+        ctx.save();
+        ctx.globalCompositeOperation='destination-over';
+        ctx.fillStyle='#ffffff';
+        ctx.fillRect(0,0,chart.width,chart.height);
+        ctx.restore();
+      }
+    };
+
+    const pc=new Chart(off.getContext('2d'),{
+      type:'radar',
+      plugins:[whiteBG],
+      data:{labels:['推進力','毒のなさ','解放度','自己認知','魂','愛'],datasets:[{
+        data:[scores.suishin,scores.doku,scores.kaihou,scores.jiko,scores.tamashii,scores.ai],
+        backgroundColor:'rgba(160,120,48,0.18)',borderColor:'#a07830',borderWidth:2.5,
+        pointBackgroundColor:'#a07830',pointBorderColor:'#ffffff',pointBorderWidth:2,pointRadius:5,
+      }]},
+      options:{
+        responsive:false,
+        animation:{duration:0,onComplete:function(){
+          try{
+            const img=document.getElementById('radarPrintImg');
+            if(img)img.src=off.toDataURL('image/png');
+          }catch(e){console.warn('[Spec-V] print radar img変換失敗',e);}
+          try{pc.destroy();}catch(e){}
+          try{document.body.removeChild(off);}catch(e){}
+        }},
+        scales:{r:{min:0,max:7,
+          ticks:{stepSize:1,color:'#444444',font:{size:11},backdropColor:'#ffffff',showLabelBackdrop:true},
+          grid:{color:'rgba(0,0,0,0.28)',lineWidth:1},
+          angleLines:{color:'rgba(0,0,0,0.28)',lineWidth:1},
+          pointLabels:{color:'#111111',font:{size:13,family:"'Noto Serif JP',serif",weight:'bold'}}
+        }},
+        plugins:{legend:{display:false}}
+      }
+    });
+    // 保険：animation duration0でonCompleteが走らないブラウザ対策
+    setTimeout(()=>{
+      try{
+        const img=document.getElementById('radarPrintImg');
+        if(img&&(!img.src||img.src==='')){img.src=off.toDataURL('image/png');}
+      }catch(e){}
+    },400);
+  }catch(e){console.warn('[Spec-V] renderRadarPrintImg失敗',e);}
+}
+
+// =============================
 // 結果表示
 // =============================
 function showResult(scores,ti,compi,kish,mode,aiText){
@@ -1714,7 +1785,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   }).join('');
   setTimeout(()=>{document.querySelectorAll('.axis-fill[data-p]').forEach(el=>{el.style.width=el.dataset.p+'%';});},100);
 
-  // レーダー
+  // レーダー（画面表示用：ダーク）
   if(rChart)rChart.destroy();
   rChart=new Chart(document.getElementById('radarChart').getContext('2d'),{
     type:'radar',
@@ -1724,52 +1795,11 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       pointBackgroundColor:'#c8a96e',pointBorderColor:'#0a0a0f',pointBorderWidth:2,pointRadius:5,
     }]},
     options:{
-      animation:{onComplete:function(){try{const img=document.getElementById('radarPrintImg');if(img)img.src=this.toBase64Image();}catch(e){}}},
-      responsive:true,scales:{r:{min:0,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10},backdropColor:'transparent'},grid:{color:'rgba(255,255,255,0.04)'},angleLines:{color:'rgba(255,255,255,0.04)'},pointLabels:{color:'#e8e4f0',font:{size:12,family:"'Noto Serif JP',serif"}}}},plugins:{legend:{display:false}}}
+      responsive:true,scales:{r:{min:0,max:7,ticks:{stepSize:1,color:'#706880',font:{size:10},backdropColor:'transparent'},grid:{color:'rgba(255,255,255,0.08)'},angleLines:{color:'rgba(255,255,255,0.08)'},pointLabels:{color:'#e8e4f0',font:{size:12,family:"'Noto Serif JP',serif"}}}},plugins:{legend:{display:false}}}
   });
-  // 印刷用：白背景・濃いグリッド・濃いラベルで別途オフスクリーン描画→imgに焼き付け
-  setTimeout(()=>{
-    try{
-      // サイズ固定600x600でオフスクリーンcanvas作成
-      const offCanvas=document.createElement('canvas');
-      offCanvas.width=600;offCanvas.height=600;
-      // DOMに一時追加（Chart.jsがDOMに紐付いてないと描画しないブラウザ対策）
-      offCanvas.style.position='fixed';offCanvas.style.left='-9999px';offCanvas.style.top='-9999px';
-      document.body.appendChild(offCanvas);
-      const offCtx=offCanvas.getContext('2d');
-      // 白背景を塗る
-      offCtx.fillStyle='#ffffff';
-      offCtx.fillRect(0,0,600,600);
-      // 印刷用スタイルでチャートを生成（animation.onCompleteで確実に取得）
-      const printChart=new Chart(offCtx,{
-        type:'radar',
-        data:{labels:['推進力','毒のなさ','解放度','自己認知','魂','愛'],datasets:[{
-          data:[scores.suishin,scores.doku,scores.kaihou,scores.jiko,scores.tamashii,scores.ai],
-          backgroundColor:'rgba(160,120,48,0.18)',borderColor:'#a07830',borderWidth:2.5,
-          pointBackgroundColor:'#a07830',pointBorderColor:'#ffffff',pointBorderWidth:2,pointRadius:5,
-        }]},
-        options:{
-          animation:{duration:300,onComplete:function(){
-            try{
-              const radarImg=document.getElementById('radarPrintImg');
-              if(radarImg)radarImg.src=offCanvas.toDataURL('image/png');
-            }catch(e){console.warn('[Spec-V] print radar img変換失敗',e);}
-            try{printChart.destroy();}catch(e){}
-            try{document.body.removeChild(offCanvas);}catch(e){}
-          }},
-          responsive:false,
-          width:600,height:600,
-          scales:{r:{min:0,max:7,
-            ticks:{stepSize:1,color:'#444444',font:{size:11},backdropColor:'rgba(255,255,255,0.85)'},
-            grid:{color:'rgba(0,0,0,0.25)'},
-            angleLines:{color:'rgba(0,0,0,0.25)'},
-            pointLabels:{color:'#111111',font:{size:13,family:"'Noto Serif JP',serif",weight:'500'}}
-          }},
-          plugins:{legend:{display:false}}
-        }
-      });
-    }catch(e){console.warn('[Spec-V] radar offscreen失敗',e);}
-  },600);
+
+  // 印刷用レーダー：白背景に濃い線で別canvasに描き、img化（白背景プラグインで確実に）
+  renderRadarPrintImg(scores);
 
   // 気質
   const KO=['突破性向','慎重性向','順応性向','跳躍性向'];
