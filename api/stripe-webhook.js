@@ -55,6 +55,7 @@ async function handler(req, res) {
   // ============================================================
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
+    const customerEmail = session.customer_details?.email || session.customer_email || null;
 
     if (session.payment_status === 'paid') {
       try {
@@ -67,7 +68,7 @@ async function handler(req, res) {
           type:         'paid',
           status:       'unused',
           issued_at:    new Date().toISOString(),
-          note:         `Stripe自動発行 / ${session.customer_email || ''}`,
+          note:         `Stripe自動発行 / ${customerEmail || ''}`,
           issued_by:    'stripe_auto'
         });
         if (tokenInsertError) throw tokenInsertError;
@@ -79,17 +80,17 @@ async function handler(req, res) {
           amount:         session.amount_total,
           currency:       session.currency,
           status:         'complete',
-          customer_email: session.customer_email,
+          customer_email: customerEmail,
           created_at:     new Date().toISOString()
         });
         if (sessionInsertError) throw sessionInsertError;
 
         // 4. 受診者にURLメール送信（Resend）
-        if (session.customer_email) {
-          await sendTokenEmail(session.customer_email, nextId);
+        if (customerEmail) {
+          await sendTokenEmail(customerEmail, nextId);
         }
 
-        console.log(`P版トークン発行: ${nextId} → ${session.customer_email}`);
+        console.log(`P版トークン発行: ${nextId} → ${customerEmail}`);
 
       } catch (err) {
         console.error('トークン発行エラー:', err);
