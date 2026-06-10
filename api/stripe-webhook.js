@@ -129,7 +129,7 @@ async function getNextTokenId(prefix) {
 // ヘルパー：メール送信（Resend）
 // ============================================================
 async function sendTokenEmail(email, tokenId) {
-  const url = `https://spec-v.vercel.app/specv_form_v6_integrated_25.html?token=${tokenId}`;
+  const url = `https://spec-v.vercel.app/main.html?token=${tokenId}`;
 
   const response = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -138,7 +138,7 @@ async function sendTokenEmail(email, tokenId) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from:    'Spec-V <noreply@spec-v.jp>',
+      from:    'Spec-V <onboarding@resend.dev>',
       to:      [email],
       subject: '【Spec-V】診断URLをお送りします',
       html: `
