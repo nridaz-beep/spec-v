@@ -139,7 +139,7 @@ async function sendTokenEmail(email, tokenId) {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      from:    'Spec-V <onboarding@resend.dev>',
+      from:    'Spec-V <noreply@spec-v.jp>',
       to:      [email],
       subject: '【Spec-V】診断URLをお送りします',
       html: `
