@@ -50,7 +50,7 @@ async function markTokenUsedWithRetry(tokenId, maxRetries = 3) {
         .from('tokens')
         .update({ status: 'used' })
         .eq('id', String(tokenId).trim().toUpperCase())
-        .in('status', ['unused', 'used']) // 既にusedでも成功扱い
+        .in('status', ['unused', 'pending', 'used']) // 既にusedでも成功扱い
         .select('id, status')
         .maybeSingle();
 

@@ -100,7 +100,7 @@ module.exports = async function handler(req, res) {
       .from('tokens')
       .update({ status: 'used' })
       .eq('id', tokenId)
-      .eq('status', 'unused')
+      .in('status', ['unused', 'pending'])
       .select('id, status')
       .maybeSingle();
 

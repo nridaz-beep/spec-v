@@ -51,12 +51,26 @@ module.exports = async function handler(req, res) {
 
     if (req.method === 'PATCH') {
       const id = String((req.body && req.body.id) || '').trim().toUpperCase();
-      const note = String((req.body && req.body.note) || '');
       if (!id) return res.status(400).json({ error: 'token_missing' });
+
+      const updates = {};
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, 'note')) {
+        updates.note = String(req.body.note || '');
+      }
+      if (Object.prototype.hasOwnProperty.call(req.body || {}, 'status')) {
+        const status = String(req.body.status || '').trim().toLowerCase();
+        if (!['unused', 'pending', 'used'].includes(status)) {
+          return res.status(400).json({ error: 'invalid_status' });
+        }
+        updates.status = status;
+      }
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ error: 'update_missing' });
+      }
 
       const { data, error } = await supabase
         .from('tokens')
-        .update({ note })
+        .update(updates)
         .eq('id', id)
         .select('id, type, status, issued_at, note')
         .single();
@@ -91,7 +105,7 @@ async function listTokens() {
 function normalizeInputToken(raw) {
   const id = String(raw.id || '').trim().toUpperCase();
   const type = raw.type === 'paid' || id.startsWith('P') ? 'paid' : 'free';
-  const status = raw.status === 'used' || raw.status === 'expired' ? raw.status : 'unused';
+  const status = ['pending', 'used', 'expired'].includes(raw.status) ? raw.status : 'unused';
   return {
     id,
     type,

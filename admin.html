@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <title>Spec-V 管理画面</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=DM+Mono:wght@400;500&display=swap');
@@ -217,8 +218,29 @@
     text-transform: uppercase;
   }
 
-  .badge-unused { background: rgba(58,138,90,0.15); color: var(--free); border: 1px solid rgba(58,138,90,0.3); }
-  .badge-used   { background: rgba(100,100,100,0.15); color: var(--muted); border: 1px solid var(--border); }
+  .badge-unused { background: rgba(120,120,120,0.12); color: #999; border: 1px solid #444; }
+  .badge-pending { background: rgba(184,148,58,0.14); color: #d4a84a; border: 1px solid rgba(184,148,58,0.45); }
+  .badge-used { background: rgba(58,138,90,0.15); color: #4aaa6a; border: 1px solid rgba(58,138,90,0.45); }
+
+  .status-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 190px;
+  }
+
+  .status-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    padding: 5px 24px 5px 8px;
+    outline: none;
+  }
+  .status-select:focus { border-color: var(--gold-dim); }
+  .status-select:disabled { cursor: wait; opacity: 0.55; }
 
   .url-cell {
     font-family: 'DM Mono', monospace;
@@ -420,6 +442,7 @@
   <button class="tab" onclick="setFilter('free', this)">FREE</button>
   <button class="tab" onclick="setFilter('paid', this)">PAID</button>
   <button class="tab" onclick="setFilter('unused', this)">未使用</button>
+  <button class="tab" onclick="setFilter('pending', this)">未受診</button>
   <button class="tab" onclick="setFilter('used', this)">受診済</button>
 </div>
 
@@ -474,6 +497,11 @@
 const ADMIN_TOKENS_API = '/api/admin-tokens';
 const BASE_URL_FREE = 'https://spec-v.vercel.app/main.html';
 const BASE_URL_PAID = 'https://spec-v.vercel.app/main.html';
+const STATUS_META = Object.freeze({
+  unused: Object.freeze({ label: '未使用', badgeClass: 'badge-unused' }),
+  pending: Object.freeze({ label: '未受診', badgeClass: 'badge-pending' }),
+  used: Object.freeze({ label: '受診済', badgeClass: 'badge-used' })
+});
 
 let tokens = [];
 let currentFilter = 'all';
@@ -511,6 +539,7 @@ function renderTable() {
     if (currentFilter === 'free'   && t.type !== 'free')     return false;
     if (currentFilter === 'paid'   && t.type !== 'paid')     return false;
     if (currentFilter === 'unused' && t.status !== 'unused') return false;
+    if (currentFilter === 'pending' && t.status !== 'pending') return false;
     if (currentFilter === 'used'   && t.status !== 'used')   return false;
     if (currentSearch) {
       const q = currentSearch.toLowerCase();
@@ -524,14 +553,21 @@ function renderTable() {
       ? `${BASE_URL_FREE}?token=${t.id}`
       : `${BASE_URL_PAID}?token=${t.id}`;
     const typeClass = t.type === 'free' ? 'free' : 'paid';
-    const badge = t.status === 'used'
-      ? '<span class="badge badge-used">受診済</span>'
-      : '<span class="badge badge-unused">未使用</span>';
+    const status = normalizeStatus(t.status);
+    const statusMeta = STATUS_META[status];
+    const badge = `<span class="badge ${statusMeta.badgeClass}" data-status="${status}">${statusMeta.label}</span>`;
+    const statusSelect = `
+      <select class="status-select" aria-label="${t.id}のステータス"
+        onchange="updateStatus('${t.id}', this.value, this)">
+        ${Object.entries(STATUS_META).map(([value, meta]) =>
+          `<option value="${value}"${status === value ? ' selected' : ''}>${meta.label}</option>`
+        ).join('')}
+      </select>`;
 
     return `
       <tr>
         <td><span class="token-id ${typeClass}">${t.id}</span></td>
-        <td>${badge}</td>
+        <td><div class="status-control">${badge}${statusSelect}</div></td>
         <td><span class="url-cell" title="${url}">${url}</span></td>
         <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${t.issued_at || '—'}</td>
         <td style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">—</td>
@@ -665,6 +701,35 @@ async function updateNote(id, note) {
   }
 }
 
+async function updateStatus(id, status, select) {
+  const token = tokens.find(t => t.id === id);
+  if (!token || !STATUS_META[status] || normalizeStatus(token.status) === status) return;
+
+  const previousStatus = token.status;
+  select.disabled = true;
+
+  try {
+    const data = await requestAdminTokens({ method: 'PATCH', body: { id, status } });
+    Object.assign(token, data.token);
+    renderTable();
+    updateStats();
+    showToast(`${id} を${getStatusLabel(status)}に変更しました`);
+  } catch (error) {
+    console.error(error);
+    token.status = previousStatus;
+    renderTable();
+    showToast(`${id} のステータスを変更できませんでした`);
+  }
+}
+
+function getStatusLabel(status) {
+  return STATUS_META[normalizeStatus(status)].label;
+}
+
+function normalizeStatus(status) {
+  return Object.prototype.hasOwnProperty.call(STATUS_META, status) ? status : 'unused';
+}
+
 function setFilter(f, el) {
   currentFilter = f;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -687,7 +752,7 @@ function showToast(msg) {
 function exportCSV() {
   const header = 'ID,タイプ,ステータス,発行日,受診日,メモ';
   const rows = tokens.map(t =>
-    `${t.id},${t.type === 'free' ? 'FREE' : 'PAID'},${t.status === 'used' ? '受診済' : '未使用'},${t.issued_at || ''},,${t.note || ''}`
+    `${t.id},${t.type === 'free' ? 'FREE' : 'PAID'},${getStatusLabel(t.status)},${t.issued_at || ''},,${t.note || ''}`
   );
   const csv = [header, ...rows].join('\n');
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
