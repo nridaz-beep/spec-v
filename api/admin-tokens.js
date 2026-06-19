@@ -116,10 +116,15 @@ function normalizeInputToken(raw) {
 }
 
 function normalizeOutputToken(token) {
+  const rawStatus = String(token.status || '').trim().toLowerCase();
+  const status = ['unused', 'pending', 'used', 'expired'].includes(rawStatus)
+    ? rawStatus
+    : 'unused';
+
   return {
     id: token.id,
     type: token.type,
-    status: token.status || 'unused',
+    status,
     issued_at: formatDate(token.issued_at),
     note: token.note || ''
   };

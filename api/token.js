@@ -76,8 +76,13 @@ module.exports = async function handler(req, res) {
     }
 
     if (!data) return res.status(200).json({ valid: false, reason: 'not_found' });
-    if (data.status === 'used') return res.status(200).json({ valid: false, reason: 'already_used' });
-    if (data.status === 'expired') return res.status(200).json({ valid: false, reason: 'expired' });
+
+    const status = String(data.status || '').trim().toLowerCase();
+    if (status === 'used') return res.status(200).json({ valid: false, reason: 'already_used' });
+    if (status === 'expired') return res.status(200).json({ valid: false, reason: 'expired' });
+    if (!['unused', 'pending'].includes(status)) {
+      return res.status(200).json({ valid: false, reason: 'invalid_status' });
+    }
 
     return res.status(200).json({ valid: true, token_id: data.id, type: data.type });
   }
