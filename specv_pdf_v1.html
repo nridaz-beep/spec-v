@@ -52,6 +52,13 @@ body{font-family:'Noto Serif JP',serif;font-weight:300;background:var(--page-bg)
 .type-name{font-family:'Cormorant Garamond',serif;font-size:40px;font-weight:600;color:var(--type-color);line-height:1;margin-bottom:5px;}
 .type-sub{font-size:10px;color:var(--ink-sub);line-height:1.75;margin-bottom:8px;}
 .type-badge{display:inline-flex;align-items:center;gap:3px;background:var(--white);border:1px solid var(--type-color);border-radius:100px;padding:2px 10px;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:var(--type-color);letter-spacing:.1em;}
+.type-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;}
+.type-mini{background:rgba(255,255,255,.72);border:1px solid var(--type-border);border-radius:var(--r);padding:7px 9px;}
+.type-mini-h{font-family:'Syne',sans-serif;font-size:6px;font-weight:700;letter-spacing:.28em;color:var(--type-color);text-transform:uppercase;margin-bottom:5px;}
+.type-mini-row{display:grid;grid-template-columns:44px 1fr 24px;align-items:center;gap:5px;margin-bottom:4px;}
+.type-mini-row:last-child{margin-bottom:0;}
+.type-mini-l{font-size:8px;color:var(--ink-sub);white-space:nowrap;}
+.type-mini-p{font-size:7.5px;color:var(--ink-muted);text-align:right;}
 .type-lv{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px 8px;background:var(--ink);}
 .lv-l{font-family:'Syne',sans-serif;font-size:6px;letter-spacing:.3em;color:var(--lv-nm-fg);text-transform:uppercase;margin-bottom:1px;}
 .lv-n{font-family:'Cormorant Garamond',serif;font-size:50px;font-weight:700;color:var(--lv-fg);line-height:1;}
@@ -417,6 +424,14 @@ function render(){
     el.querySelector('.ks-f').style.background = tempColors[i];
     el.querySelector('.ks-p').textContent = tempPcts[i]+'%';
   });
+  const typeTempEls = ['type-temp-toppa','type-temp-choyaku','type-temp-junno','type-temp-shincho'];
+  typeTempEls.forEach((id,i)=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.querySelector('.ax-f').style.width = tempPcts[i]+'%';
+    el.querySelector('.ax-f').style.background = tempColors[i];
+    el.querySelector('.type-mini-p').textContent = tempPcts[i]+'%';
+  });
   // 気質コメント
   document.getElementById('temp-cmt').textContent = D.temperament
     ? `${D.temperament}の組み合わせ。`
@@ -451,6 +466,19 @@ function render(){
     el.querySelector('.ks-f').style.width = raw+'%';
     el.querySelector('.ks-f').style.background = color;
     el.querySelector('.ks-p').textContent = raw+'%';
+  });
+  const typeModeMap = [
+    {id:'type-mode-hassou', pct:modePcts[3], color:'#9060d0'},
+    {id:'type-mode-jitsumu', pct:modePcts[1], color:'#3060a0'},
+    {id:'type-mode-kenbiki', pct:modePcts[0], color:'#5090d0'},
+    {id:'type-mode-shien', pct:modePcts[2], color:'#3a8a5a'},
+  ];
+  typeModeMap.forEach(item=>{
+    const el = document.getElementById(item.id);
+    if(!el) return;
+    el.querySelector('.ax-f').style.width = item.pct+'%';
+    el.querySelector('.ax-f').style.background = item.color;
+    el.querySelector('.type-mini-p').textContent = item.pct+'%';
   });
   document.getElementById('mode-cmt').textContent =
     `最も強い動き方は${modeItems[0].label.replace('モード','')}（${modeItems[0].pct}%）。${D.mode}が主軸。`;
@@ -558,6 +586,22 @@ document.addEventListener('DOMContentLoaded', render);
       <div class="type-name" id="type-name">---</div>
       <div class="type-sub" id="type-sub">---</div>
       <div class="type-badge" id="type-badge">---</div>
+      <div class="type-summary">
+        <div class="type-mini">
+          <div class="type-mini-h">Tendency</div>
+          <div class="type-mini-row" id="type-temp-toppa"><div class="type-mini-l">突破</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+          <div class="type-mini-row" id="type-temp-choyaku"><div class="type-mini-l">跳躍</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+          <div class="type-mini-row" id="type-temp-junno"><div class="type-mini-l">順応</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+          <div class="type-mini-row" id="type-temp-shincho"><div class="type-mini-l">慎重</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+        </div>
+        <div class="type-mini">
+          <div class="type-mini-h">Mode</div>
+          <div class="type-mini-row" id="type-mode-hassou"><div class="type-mini-l">発想</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+          <div class="type-mini-row" id="type-mode-jitsumu"><div class="type-mini-l">実務</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+          <div class="type-mini-row" id="type-mode-kenbiki"><div class="type-mini-l">牽引</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+          <div class="type-mini-row" id="type-mode-shien"><div class="type-mini-l">支援</div><div class="ax-bg"><div class="ax-f" style="width:0%"></div></div><div class="type-mini-p">-%</div></div>
+        </div>
+      </div>
     </div>
     <div class="type-lv">
       <div class="lv-l">Level</div>
