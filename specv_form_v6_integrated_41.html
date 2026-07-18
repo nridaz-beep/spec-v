@@ -1336,6 +1336,7 @@ function openPrintPage(){
     return`<tr><td style="padding:5px 0;font-size:11px;color:#444;width:60px;font-weight:500;">${lbl}</td><td style="padding:5px 8px;"><div style="background:#ede8de;border-radius:2px;height:7px;overflow:hidden;"><div style="width:${p}%;height:100%;background:${c};border-radius:2px;"></div></div></td><td style="padding:5px 0;font-size:13px;font-weight:700;color:${warn?'#b03838':'#222'};width:36px;text-align:right;">${val}</td></tr>`;
   }
   function kmRow(k,p,col){return`<tr><td style="padding:4px 0;font-size:10px;color:#444;width:64px;">${k}</td><td style="padding:4px 6px;"><div style="background:#ede8de;border-radius:2px;height:5px;overflow:hidden;"><div style="width:${p}%;height:100%;background:${col};border-radius:2px;"></div></div></td><td style="padding:4px 0;font-size:9px;color:#888;width:28px;text-align:right;">${p}%</td></tr>`;}
+  function miniPctRow(label,p,col){return`<div style="display:grid;grid-template-columns:42px 1fr 28px;align-items:center;gap:6px;margin-bottom:4px;"><div style="font-size:8px;color:#555;white-space:nowrap;">${label}</div><div style="background:#ede8de;border-radius:2px;height:6px;overflow:hidden;"><div style="width:${p}%;height:100%;background:${col};border-radius:2px;"></div></div><div style="font-size:8px;color:#888;text-align:right;">${p}%</div></div>`;}
   function cpRow(d){const warn=d.score<=3.5,col={tamashii:'#b8943a',ai:'#3a8a5a',anzen:'#3060a8'}[d.group]||'#888';return`<tr><td style="padding:4px 8px;font-size:9.5px;color:#444;">${d.label}</td><td style="padding:4px 6px;"><div style="background:#ede8de;border-radius:2px;height:5px;overflow:hidden;"><div style="width:${Math.round((d.score/7)*100)}%;height:100%;background:${warn?'#b03838':col};border-radius:2px;"></div></div></td><td style="padding:4px 8px;font-size:10px;font-weight:700;color:${warn?'#b03838':'#333'};width:28px;text-align:right;">${d.score}</td></tr>`;}
 
   // ヘッダー・フッター
@@ -1349,6 +1350,8 @@ function openPrintPage(){
   const MSD={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
   const topKN=_lastKish?Object.entries(_lastKish.pct).sort((a,b)=>b[1]-a[1])[0][0]:'—';
   const topMN=_lastMode?Object.entries(_lastMode.pct).sort((a,b)=>b[1]-a[1])[0][0]:'—';
+  const pdfTempRows=_lastKish?['突破性向','跳躍性向','順応性向','慎重性向'].map((k,i)=>miniPctRow(k.replace('性向',''),Math.round(_lastKish.pct[k]||0),['#c07040','#9060d0','#5080c0','#606060'][i])).join(''):'';
+  const pdfModeRows=_lastMode?['発想モード','実務モード','牽引モード','支援モード'].map((k,i)=>miniPctRow(k.replace('モード',''),Math.round(_lastMode.pct[k]||0),['#9060d0','#3060a0','#5090d0','#3a8a5a'][i])).join(''):'';
   const srt=[...compi].sort((a,b)=>b.score-a.score);
   const top3=srt.slice(0,3),bot3=[...compi].sort((a,b)=>a.score-b.score).slice(0,3);
 
@@ -1380,6 +1383,16 @@ function openPrintPage(){
         <div style="font-size:38px;font-weight:700;color:${tcol};line-height:1;margin-bottom:5px;">${ti.q}</div>
         <div style="font-size:10px;color:#666;line-height:1.7;margin-bottom:8px;">${ti.s||''}</div>
         <div style="display:inline-flex;align-items:center;background:#fff;border:1px solid ${tcol};border-radius:100px;padding:2px 12px;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:${tcol};">高貢献候補</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;">
+          <div style="background:rgba(255,255,255,.72);border:1px solid #e0d0a0;border-radius:3px;padding:7px 9px;">
+            <div style="font-family:'Syne',sans-serif;font-size:6px;font-weight:700;letter-spacing:.28em;color:${tcol};text-transform:uppercase;margin-bottom:5px;">Tendency</div>
+            ${pdfTempRows}
+          </div>
+          <div style="background:rgba(255,255,255,.72);border:1px solid #e0d0a0;border-radius:3px;padding:7px 9px;">
+            <div style="font-family:'Syne',sans-serif;font-size:6px;font-weight:700;letter-spacing:.28em;color:${tcol};text-transform:uppercase;margin-bottom:5px;">Mode</div>
+            ${pdfModeRows}
+          </div>
+        </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;background:#1a1714;">
         <div style="font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.3em;color:#c8a96e;text-transform:uppercase;margin-bottom:2px;">Level</div>
