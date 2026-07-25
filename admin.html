@@ -388,15 +388,94 @@
   }
   .toast.show { transform: translateY(0); opacity: 1; }
 
+  .auth-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: radial-gradient(circle at top, rgba(184,148,58,0.14), transparent 36%), rgba(13,13,15,0.96);
+  }
+  .auth-card {
+    width: min(420px, 100%);
+    background: var(--surface);
+    border: 1px solid rgba(184,148,58,0.32);
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+  }
+  .auth-card h1 {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    letter-spacing: 0.14em;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .auth-card p { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 18px; }
+  .auth-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 13px 14px;
+    color: var(--text);
+    font-size: 16px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .auth-input:focus { border-color: var(--gold); }
+  .auth-error { min-height: 18px; color: var(--danger); font-size: 12px; margin-top: 10px; }
+  .admin-shell.locked { display: none; }
+
   @media (max-width: 768px) {
-    .stats { grid-template-columns: repeat(2, 1fr); }
-    .url-cell { display: none; }
-    .search-box { width: 140px; }
+    body { padding: 18px 14px 28px; }
+    header { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 24px; }
+    .logo { font-size: 18px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+    .stat-card { padding: 13px 14px; }
+    .stat-value { font-size: 24px; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .actions .btn { justify-content: center; width: 100%; padding: 12px 10px; font-size: 12px; }
+    .actions .btn-outline { grid-column: span 2; }
+    .search-box { grid-column: span 2; width: 100%; margin-left: 0; padding: 12px 14px; font-size: 14px; }
+    .filter-tabs { overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .tab { flex: 0 0 auto; padding: 8px 13px; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+    table { min-width: 760px; }
+    thead th, td { padding: 11px 12px; }
+    .url-cell { max-width: 220px; }
+    .status-control { min-width: 178px; }
+    .note-input { width: 140px; }
+    .modal { width: calc(100vw - 28px); max-width: none; padding: 24px 20px; }
+    .modal-actions { flex-direction: column; }
+    .modal-actions .btn { width: 100%; justify-content: center; }
+    .new-token-id { font-size: 28px; }
+    .toast { left: 14px; right: 14px; bottom: 14px; text-align: center; }
+  }
+
+  @media (max-width: 430px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat-label { font-size: 10px; }
+    .actions { grid-template-columns: 1fr; }
+    .actions .btn-outline, .search-box { grid-column: auto; }
   }
 </style>
 </head>
 <body>
 
+<div class="auth-overlay" id="authOverlay">
+  <form class="auth-card" id="authForm">
+    <h1>SPEC-V ADMIN</h1>
+    <p>管理画面を開くためのパスワードを入力してください。認証後、このブラウザのタブ内だけ有効になります。</p>
+    <input class="auth-input" id="adminPasswordInput" type="password" autocomplete="current-password" placeholder="管理パスワード">
+    <button class="btn btn-paid" type="submit" style="width:100%;justify-content:center;padding:12px 16px;">ログイン</button>
+    <div class="auth-error" id="authError"></div>
+  </form>
+</div>
+
+<div class="admin-shell locked" id="adminShell">
 <header>
   <div class="logo">SPEC-V <span>/ ADMIN</span></div>
   <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)" id="dateDisplay"></div>
@@ -489,12 +568,14 @@
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+</div>
 
 <script>
 // ============================================================
 // データストア
 // ============================================================
 const ADMIN_TOKENS_API = '/api/admin-tokens';
+const ADMIN_PASSWORD_KEY = 'specv_admin_password';
 const BASE_URL_FREE = 'https://spec-v.vercel.app/main.html';
 const BASE_URL_PAID = 'https://spec-v.vercel.app/main.html';
 const STATUS_META = Object.freeze({
@@ -511,16 +592,48 @@ let pendingType = 'free';
 // ============================================================
 // 初期化
 // ============================================================
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('dateDisplay').textContent =
     new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'2-digit', day:'2-digit' });
 
-  await loadTokens();
+  document.getElementById('authForm').addEventListener('submit', handleAdminLogin);
+  const savedPassword = sessionStorage.getItem(ADMIN_PASSWORD_KEY);
+  if (savedPassword) unlockAdmin(savedPassword);
 });
 
-async function loadTokens() {
+async function handleAdminLogin(event) {
+  event.preventDefault();
+  const input = document.getElementById('adminPasswordInput');
+  const error = document.getElementById('authError');
+  const password = input.value.trim();
+  if (!password) {
+    error.textContent = 'パスワードを入力してください';
+    input.focus();
+    return;
+  }
+  error.textContent = '';
+  await unlockAdmin(password, true);
+}
+
+async function unlockAdmin(password, showErrors = false) {
+  const error = document.getElementById('authError');
   try {
-    const data = await requestAdminTokens();
+    await loadTokens(password);
+    sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
+    document.getElementById('authOverlay').style.display = 'none';
+    document.getElementById('adminShell').classList.remove('locked');
+  } catch (err) {
+    console.error(err);
+    sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
+    document.getElementById('authOverlay').style.display = 'flex';
+    document.getElementById('adminShell').classList.add('locked');
+    if (showErrors) error.textContent = err.message === 'unauthorized' ? 'パスワードが違います' : '管理APIに接続できませんでした';
+  }
+}
+
+async function loadTokens(password) {
+  try {
+    const data = await requestAdminTokens({ password });
     tokens = Array.isArray(data.tokens) ? data.tokens : [];
     renderTable();
     updateStats();
@@ -764,14 +877,19 @@ function exportCSV() {
 }
 
 async function requestAdminTokens(options = {}) {
+  const password = options.password || sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+  const headers = { 'x-admin-password': password };
+  if (options.body) headers['Content-Type'] = 'application/json';
+
   const response = await fetch(ADMIN_TOKENS_API, {
     method: options.method || 'GET',
-    headers: options.body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: options.body ? JSON.stringify(options.body) : undefined
   });
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
+    if (response.status === 401) throw new Error('unauthorized');
     throw new Error(data.error || `request_failed_${response.status}`);
   }
   return data;

@@ -18,13 +18,17 @@ const supabase = createClient(
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PATCH, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-admin-password');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   if (!supabaseUrl || !supabaseKey) {
     console.error('[admin-tokens] missing Supabase env');
     return res.status(500).json({ error: 'server_config_missing' });
+  }
+
+  if (!isAuthorized(req)) {
+    return res.status(401).json({ error: 'unauthorized' });
   }
 
   try {
@@ -91,6 +95,17 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ error: 'db_error' });
   }
 };
+
+
+function isAuthorized(req) {
+  const expected = process.env.ADMIN_PASSWORD;
+  if (!expected) {
+    console.warn('[admin-tokens] ADMIN_PASSWORD is not set; admin API is unprotected');
+    return true;
+  }
+  const provided = String(req.headers['x-admin-password'] || '').trim();
+  return provided === expected;
+}
 
 async function listTokens() {
   const { data, error } = await supabase
