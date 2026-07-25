@@ -195,6 +195,16 @@ body::before {
 .adv-card-label { font-family: 'Syne', sans-serif; font-size: 11px; color: var(--accent); margin-bottom: 6px; }
 .adv-card-text { font-size: 13px; color: var(--text-sub); line-height: 1.8; }
 .final-box { background: rgba(200,169,110,0.08); border: 1px solid rgba(200,169,110,0.25); border-radius: 8px; padding: 22px 24px; }
+.deep-cta-card{background:linear-gradient(180deg,rgba(200,169,110,.08),rgba(200,169,110,.035));border:1px solid rgba(200,169,110,.28);border-radius:var(--radius);padding:34px 36px;box-shadow:0 18px 48px rgba(0,0,0,.18);}
+.deep-cta-lead{font-size:18px;color:var(--text);font-weight:500;line-height:1.85;margin-bottom:8px;}
+.deep-cta-body{font-size:13px;color:var(--text-sub);line-height:1.9;margin-bottom:22px;}
+.deep-cta-textarea{width:100%;min-height:132px;background:rgba(10,10,15,.55);border:1px solid rgba(200,169,110,.22);border-radius:8px;padding:17px 18px;color:var(--text);font-family:'Noto Serif JP',serif;font-size:14px;font-weight:300;line-height:1.8;outline:none;resize:vertical;transition:border-color .2s,box-shadow .2s,background .2s;}
+.deep-cta-textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(200,169,110,.08);background:rgba(10,10,15,.72);}
+.deep-cta-button{margin-top:16px;width:100%;background:linear-gradient(135deg,#0d0b08,#1a1714 45%,#3a2c14);border:1px solid rgba(224,200,136,.72);border-radius:var(--radius);padding:21px 22px;color:var(--accent2);font-family:'Syne',sans-serif;font-size:13px;font-weight:800;letter-spacing:.22em;text-transform:uppercase;cursor:pointer;transition:transform .18s,box-shadow .18s,border-color .18s,background .18s;box-shadow:0 14px 34px rgba(0,0,0,.28),inset 0 1px 0 rgba(255,255,255,.06);}
+.deep-cta-button:hover{transform:translateY(-1px);border-color:var(--accent2);box-shadow:0 18px 42px rgba(0,0,0,.34),0 0 0 3px rgba(200,169,110,.08);}
+.deep-cta-button:disabled{cursor:not-allowed;transform:none;opacity:.5;box-shadow:none;}
+@media(max-width:540px){.deep-cta-card{padding:26px 22px}.deep-cta-lead{font-size:16px}.deep-cta-button{font-size:12px;letter-spacing:.16em;padding:18px 16px}}
+
 
 footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); margin-top: 16px; letter-spacing: 0.05em; line-height: 2; }
 
@@ -766,58 +776,20 @@ async function startCheckout() {
       <div id="aiBlocks"><div style="text-align:center;padding:40px;color:var(--text-muted);">AI分析を読み込み中...</div></div>
     </div>
     <!-- ===== フリーコメント + 2次分析 ===== -->
-    <div class="section-block" id="secondAnalysisInput">
+    <div class="section-block deep-cta-card" id="secondAnalysisInput">
       <span class="sec-title">Deep Dive — 2次分析（任意）</span>
-      <p style="font-size:13px;color:var(--text-muted);line-height:1.9;margin-bottom:20px;">
-        今の状況・気になること・悩んでいることを自由に書いてください。<br>
-        AIがスコアと組み合わせて、より具体的な洞察を返します。
+      <p class="deep-cta-lead" id="secondAnalysisLead">あなたがすでに知っていることに、輪郭を与える。</p>
+      <p class="deep-cta-body" id="secondAnalysisBody">
+        今の状況・気になること・言葉にしきれていない違和感を自由に書いてください。AIがスコアと組み合わせて、次に見るべき輪郭を返します。
       </p>
       <textarea
         id="userComment"
+        class="deep-cta-textarea"
         autocomplete="off"
         placeholder="例：最近チームの雰囲気が悪くて自分のせいかもしれない。上司との関係も難しい。転職を考えている..."
-        style="
-          width:100%;
-          min-height:120px;
-          background:var(--surface2);
-          border:1px solid var(--border);
-          border-radius:8px;
-          padding:16px;
-          color:var(--text);
-          font-family:'Noto Serif JP',serif;
-          font-size:14px;
-          font-weight:300;
-          line-height:1.8;
-          outline:none;
-          resize:vertical;
-          transition:border-color .2s;
-        "
-        onfocus="this.style.borderColor='var(--accent)'"
-        onblur="this.style.borderColor='var(--border)'"
       ></textarea>
-      <button
-        id="runSecondAnalysis"
-        onclick="runSecondAnalysis()"
-        style="
-          margin-top:14px;
-          width:100%;
-          background:linear-gradient(135deg,rgba(200,169,110,0.15),rgba(200,169,110,0.08));
-          border:1px solid rgba(200,169,110,0.4);
-          border-radius:var(--radius);
-          padding:16px;
-          color:var(--accent2);
-          font-family:'Syne',sans-serif;
-          font-size:12px;
-          font-weight:700;
-          letter-spacing:.25em;
-          text-transform:uppercase;
-          cursor:pointer;
-          transition:all .2s;
-        "
-        onmouseover="this.style.background='rgba(200,169,110,0.2)'"
-        onmouseout="this.style.background='linear-gradient(135deg,rgba(200,169,110,0.15),rgba(200,169,110,0.08))'"
-      >
-        この内容で深掘り分析する →
+      <button id="runSecondAnalysis" class="deep-cta-button" onclick="runSecondAnalysis()">
+        輪郭を深掘りする →
       </button>
     </div>
 
@@ -1180,6 +1152,11 @@ let purpose='';
 let rChart=null, cChart=null;
 // 1次完了時に保存（2次分析・Before/After用）
 let _lastScores=null, _lastTi=null, _lastCompi=null, _lastMode=null, _lastKish=null;
+const SECOND_ANALYSIS_CTA={
+  lead:'あなたがすでに知っていることに、輪郭を与える。',
+  body:'今の状況・気になること・言葉にしきれていない違和感を自由に書いてください。AIがスコアと組み合わせて、次に見るべき輪郭を返します。',
+  button:'輪郭を深掘りする →'
+};
 // =============================
 // cleanAIText: マークダウンノイズ除去（全AI出力に適用）
 // =============================
@@ -1307,6 +1284,12 @@ async function retryPendingNotify(){
 // 初期化（?dev判定・PDF準備）
 // =============================
 document.addEventListener('DOMContentLoaded',()=>{
+  const ctaLead=document.getElementById('secondAnalysisLead');
+  const ctaBody=document.getElementById('secondAnalysisBody');
+  const ctaButton=document.getElementById('runSecondAnalysis');
+  if(ctaLead)ctaLead.textContent=SECOND_ANALYSIS_CTA.lead;
+  if(ctaBody)ctaBody.textContent=SECOND_ANALYSIS_CTA.body;
+  if(ctaButton)ctaButton.textContent=SECOND_ANALYSIS_CTA.button;
   const devBar=document.getElementById('devBar');
   if(devBar && new URLSearchParams(location.search).has('dev')){
     devBar.style.display='flex';
@@ -2266,7 +2249,7 @@ async function runSecondAnalysis(){
       document.getElementById('secondAnalysisLoading').style.display='none';
       document.getElementById('secondAnalysisBlocks').innerHTML='<div style="text-align:center;padding:24px;color:var(--warn);">分析の読み込みに失敗しました。もう一度お試しください。</div>';
       document.getElementById('secondAnalysisBlocks').style.display='block';
-      btn.textContent='この内容で深掘り分析する →';
+      btn.textContent=SECOND_ANALYSIS_CTA.button;
       btn.disabled=false;btn.style.opacity='1';
       return;
     }
@@ -2291,7 +2274,7 @@ async function runSecondAnalysis(){
     document.getElementById('secondAnalysisLoading').style.display='none';
     document.getElementById('secondAnalysisBlocks').innerHTML='<div style="text-align:center;padding:24px;color:var(--warn);">2次分析の取得に失敗しました。しばらく経ってから再試行してください。</div>';
     document.getElementById('secondAnalysisBlocks').style.display='block';
-    btn.textContent='この内容で深掘り分析する →';
+    btn.textContent=SECOND_ANALYSIS_CTA.button;
     btn.disabled=false;
     btn.style.opacity='1';
   }
