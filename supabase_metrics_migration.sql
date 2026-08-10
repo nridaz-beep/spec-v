@@ -3,9 +3,9 @@
 
 create table if not exists public.departments (
   id uuid primary key default gen_random_uuid(),
-  org_id text not null,
+  org_id uuid references public.organizations(id),
   name text not null,
-  target_count integer not null default 0 check (target_count >= 0),
+  target_count integer,
   created_at timestamptz not null default now()
 );
 
@@ -41,7 +41,7 @@ create policy service_role_all
   using (true)
   with check (true);
 
-alter table public.tokens add column if not exists org_id text;
+alter table public.tokens add column if not exists org_id uuid references public.organizations(id);
 alter table public.tokens add column if not exists department_id uuid references public.departments(id) on delete set null;
 alter table public.tokens add column if not exists announced_at timestamptz;
 alter table public.tokens add column if not exists deadline timestamptz;
