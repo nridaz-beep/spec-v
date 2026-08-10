@@ -108,13 +108,32 @@ function isAuthorized(req) {
 }
 
 async function listTokens() {
-  const { data, error } = await supabase
+  const extended = await supabase
     .from('tokens')
     .select('id, type, status, issued_at, note, org_id, department_id, announced_at, deadline, announced_by')
     .order('id', { ascending: true });
 
-  if (error) throw error;
-  return (data || []).map(normalizeOutputToken);
+  if (!extended.error) return (extended.data || []).map(normalizeOutputToken);
+
+  // 新カラムのDB反映前でも、既存トークン一覧は表示できるようにする。
+  if (!isMissingTokenMetadataColumn(extended.error)) throw extended.error;
+  const legacy = await supabase
+    .from('tokens')
+    .select('id, type, status, issued_at, note')
+    .order('id', { ascending: true });
+  if (legacy.error) throw legacy.error;
+  return (legacy.data || []).map(normalizeOutputToken);
+}
+
+function isMissingTokenMetadataColumn(error) {
+  const message = String(error && error.message || '').toLowerCase();
+  return error && error.code === '42703' || message.includes('column') && (
+    message.includes('org_id') ||
+    message.includes('department_id') ||
+    message.includes('announced_at') ||
+    message.includes('deadline') ||
+    message.includes('announced_by')
+  );
 }
 
 function normalizeInputToken(raw) {
