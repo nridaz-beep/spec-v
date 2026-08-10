@@ -429,6 +429,22 @@
   .auth-error { min-height: 18px; color: var(--danger); font-size: 12px; margin-top: 10px; }
   .admin-shell.locked { display: none; }
 
+  .department-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    align-items: end;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .department-field label { display:block; color:var(--muted); font-size:10px; margin-bottom:6px; letter-spacing:.08em; }
+  .department-field input, .department-field select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:10px 12px; font:13px 'Noto Sans JP',sans-serif; }
+  .department-field input:focus, .department-field select:focus { outline:none; border-color:var(--gold-dim); }
+  .department-list { grid-column:1 / -1; color:var(--muted); font-size:12px; line-height:1.7; }
+
   @media (max-width: 768px) {
     body { padding: 18px 14px 28px; }
     header { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 24px; }
@@ -453,6 +469,8 @@
     .modal-actions .btn { width: 100%; justify-content: center; }
     .new-token-id { font-size: 28px; }
     .toast { left: 14px; right: 14px; bottom: 14px; text-align: center; }
+    .department-panel { grid-template-columns: 1fr 1fr; }
+    .department-panel .btn { grid-column: 1 / -1; justify-content:center; }
   }
 
   @media (max-width: 430px) {
@@ -515,6 +533,23 @@
   <input class="search-box" type="text" placeholder="検索（ID・メモ）" oninput="filterTokens(this.value)">
 </div>
 
+<section class="department-panel" aria-labelledby="departmentTitle">
+  <div class="department-field">
+    <label id="departmentTitle" for="orgInput">組織ID</label>
+    <input id="orgInput" type="text" placeholder="例：company-a">
+  </div>
+  <div class="department-field">
+    <label for="departmentNameInput">部署名</label>
+    <input id="departmentNameInput" type="text" placeholder="例：営業部">
+  </div>
+  <div class="department-field">
+    <label for="departmentTargetInput">対象人数</label>
+    <input id="departmentTargetInput" type="number" min="0" step="1" value="0">
+  </div>
+  <button class="btn btn-outline" type="button" onclick="registerDepartment()">部署を登録</button>
+  <div class="department-list" id="departmentList">登録済み部署を読み込み中…</div>
+</section>
+
 <!-- Filter tabs -->
 <div class="filter-tabs">
   <button class="tab active" onclick="setFilter('all', this)">ALL</button>
@@ -559,6 +594,20 @@
       <input type="text" id="noteInput" placeholder="誰に渡すか入力">
     </div>
 
+    <div class="note-field">
+      <label for="departmentSelect">部署（任意）</label>
+      <select id="departmentSelect" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
+        <option value="">部署を指定しない</option>
+      </select>
+    </div>
+    <div class="note-field">
+      <label for="announcedAtInput">告知日・期限（任意）</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <input type="date" id="announcedAtInput" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
+        <input type="date" id="deadlineInput" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
+      </div>
+    </div>
+
     <div class="modal-actions">
       <button class="btn btn-free" id="issueConfirmBtn" onclick="issueToken()">発行してURLコピー</button>
       <button class="btn btn-outline" onclick="closeModal()">キャンセル</button>
@@ -588,6 +637,8 @@ let tokens = [];
 let currentFilter = 'all';
 let currentSearch = '';
 let pendingType = 'free';
+let departments = [];
+const ADMIN_DEPARTMENTS_API = '/api/admin-departments';
 
 // ============================================================
 // 初期化
@@ -637,9 +688,52 @@ async function loadTokens(password) {
     tokens = Array.isArray(data.tokens) ? data.tokens : [];
     renderTable();
     updateStats();
+    await loadDepartments(password);
   } catch (error) {
     console.error(error);
     showToast('トークン一覧を読み込めませんでした');
+  }
+}
+
+async function loadDepartments(password) {
+  try {
+    const data = await requestAdminDepartments({ password });
+    departments = Array.isArray(data.departments) ? data.departments : [];
+    renderDepartmentOptions();
+    document.getElementById('departmentList').textContent = departments.length
+      ? departments.map(d => `${d.org_id} / ${d.name}（対象${d.target_count}人）`).join('　')
+      : '登録済み部署はありません。';
+  } catch (error) {
+    console.error(error);
+    document.getElementById('departmentList').textContent = '部署情報を読み込めませんでした。';
+  }
+}
+
+function renderDepartmentOptions() {
+  const select = document.getElementById('departmentSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="">部署を指定しない</option>' + departments.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.org_id)} / ${escapeHtml(d.name)}</option>`).join('');
+}
+
+async function registerDepartment() {
+  const orgId = document.getElementById('orgInput').value.trim();
+  const name = document.getElementById('departmentNameInput').value.trim();
+  const targetCount = Number(document.getElementById('departmentTargetInput').value || 0);
+  if (!orgId || !name || !Number.isInteger(targetCount) || targetCount < 0) {
+    showToast('組織ID・部署名・対象人数を確認してください');
+    return;
+  }
+  try {
+    const data = await requestAdminDepartments({ method:'POST', body:{ org_id:orgId, name, target_count:targetCount } });
+    departments.push(data.department);
+    renderDepartmentOptions();
+    document.getElementById('departmentList').textContent = departments.map(d => `${d.org_id} / ${d.name}（対象${d.target_count}人）`).join('　');
+    document.getElementById('departmentNameInput').value = '';
+    document.getElementById('departmentTargetInput').value = '0';
+    showToast('部署を登録しました');
+  } catch (error) {
+    console.error(error);
+    showToast('部署を登録できませんでした');
   }
 }
 
@@ -735,6 +829,10 @@ function closeModal() {
 async function issueToken() {
   const nextId = getNextId(pendingType);
   const note   = document.getElementById('noteInput').value;
+  const departmentId = document.getElementById('departmentSelect').value;
+  const department = departments.find(item => item.id === departmentId);
+  const announcedAt = document.getElementById('announcedAtInput').value;
+  const deadline = document.getElementById('deadlineInput').value;
   const url    = pendingType === 'free'
     ? `${BASE_URL_FREE}?token=${nextId}`
     : `${BASE_URL_PAID}?token=${nextId}`;
@@ -747,7 +845,12 @@ async function issueToken() {
         type: pendingType,
         status: 'unused',
         issued_at: new Date().toISOString(),
-        note
+        note,
+        org_id: department ? department.org_id : '',
+        department_id: departmentId,
+        announced_at: announcedAt ? `${announcedAt}T00:00:00.000Z` : null,
+        deadline: deadline ? `${deadline}T23:59:59.999Z` : null,
+        announced_by: sessionStorage.getItem(ADMIN_PASSWORD_KEY) ? 'admin' : ''
       }
     });
 
@@ -887,6 +990,19 @@ async function requestAdminTokens(options = {}) {
     body: options.body ? JSON.stringify(options.body) : undefined
   });
 
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401) throw new Error('unauthorized');
+    throw new Error(data.error || `request_failed_${response.status}`);
+  }
+  return data;
+}
+
+async function requestAdminDepartments(options = {}) {
+  const password = options.password || sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+  const headers = { 'x-admin-password': password };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const response = await fetch(ADMIN_DEPARTMENTS_API, { method: options.method || 'GET', headers, body: options.body ? JSON.stringify(options.body) : undefined });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     if (response.status === 401) throw new Error('unauthorized');

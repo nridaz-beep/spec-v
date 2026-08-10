@@ -1199,6 +1199,9 @@ let purpose='';
 let rChart=null, cChart=null;
 // 1次完了時に保存（2次分析・Before/After用）
 let _lastScores=null, _lastTi=null, _lastCompi=null, _lastMode=null, _lastKish=null;
+let _ai1GateBlocked=false;
+let _ai1GateMessage='';
+let _recoveryToken='';
 let temporalAnswers={tamashii:'',ai:''};
 let episodeAnswers={tamashii:'',ai:''};
 let pendingDiagnosis=null;
@@ -2176,7 +2179,10 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   };
   const conf=ALB[purpose]||ALB.self;
   document.getElementById('aiSecTitle').textContent=conf.t;
-  if(aiText && aiText.trim().length > 10){
+  if(_ai1GateBlocked){
+    const recovery=_recoveryToken?`<div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border);font-size:13px;color:var(--accent2);">再受診用トークン：<strong style="font-family:'Syne',sans-serif;letter-spacing:.12em;">${_recoveryToken}</strong></div>`:'';
+    document.getElementById('aiBlocks').innerHTML=`<div class="ai-block"><div class="ai-text">${_ai1GateMessage}${recovery}</div></div>`;
+  }else if(aiText && aiText.trim().length > 10){
     const sec={};
     [...conf.tags,'OVERALL'].forEach(tag=>{const m=aiText.match(new RegExp(`【${tag}】([\\s\\S]*?)(?=【|$)`));sec[tag]=m?cleanAIText(m[1]):'';});
     // タグが1つも取れなかった場合はフォールバック表示
@@ -2271,6 +2277,7 @@ async function finalizeDiagnosis(diag){
       try{localStorage.setItem('sv_ai1',aiText);}catch(e){}
     }
   }catch(e){console.error(e);}
+  if(!_ai1GateBlocked)await markCurrentTokenUsed();
   clearInterval(iv);
   showResult(scores,ti,compi,kish,mode,aiText);
   window._pendingNotify={scores,ti,compi,kish,mode,aiText};
@@ -2286,6 +2293,11 @@ async function runSecondAnalysis(){
   const comment=rawComment.replace(/[\u3000\s]/g,' ').trim();
   const scores=_lastScores, ti=_lastTi, compi=_lastCompi;
   if(!scores||!ti||!compi)return;
+
+  if(isThinUserComment(comment)){
+    showMaterialShortage('second');
+    return;
+  }
 
   // ボタン無効化・エリア表示・ローディング
   const btn=document.getElementById('runSecondAnalysis');
@@ -2731,7 +2743,73 @@ function getStyleContextPrompt(answerStyle){
   return'';
 }
 
+function materialShortageMessage(){
+  return purpose==='self'
+    ? '今回の回答からは、Spec-Vとして確かなことをお伝えできる材料が集まりませんでした。材料が足りないときに推測で語らない設計にしています。もう一度受けてみてください。'
+    : '今回のデータからは、判断材料としてお出しできる分析が組み立てられませんでした。推測での出力はいたしません。';
+}
+
+function showMaterialShortage(scope){
+  const message=materialShortageMessage();
+  if(scope==='second'){
+    const result=document.getElementById('secondAnalysisResult');
+    const loading=document.getElementById('secondAnalysisLoading');
+    const blocks=document.getElementById('secondAnalysisBlocks');
+    const btn=document.getElementById('runSecondAnalysis');
+    if(result)result.style.display='block';
+    if(loading)loading.style.display='none';
+    if(blocks){blocks.innerHTML=`<div class="ai-block"><div class="ai-text">${message}</div></div>`;blocks.style.display='block';}
+    if(btn){btn.textContent=SECOND_ANALYSIS_CTA.button;btn.disabled=false;btn.style.opacity='1';}
+    result?.scrollIntoView({behavior:'smooth',block:'start'});
+  }
+}
+
+function isThinUserComment(comment){
+  const normalized=String(comment||'').replace(/[\s\u3000]/g,'').trim();
+  if(normalized.length<8)return true;
+  const words=String(comment||'').toLowerCase().split(/[\s、。,.!?！？]+/).filter(Boolean);
+  if(words.length>=3){
+    const counts=words.reduce((map,word)=>{map[word]=(map[word]||0)+1;return map;},{});
+    const maxCount=Math.max(...Object.values(counts));
+    if(maxCount/words.length>=0.75)return true;
+  }
+  const chars=[...normalized];
+  const counts=chars.reduce((map,char)=>{map[char]=(map[char]||0)+1;return map;},{});
+  return chars.length>=6 && Math.max(...Object.values(counts))/chars.length>=0.75;
+}
+
+function assessAnswerQuality(){
+  const valid=questions.map((q,i)=>({q,v:Number(answers[i])})).filter(item=>Number.isFinite(item.v));
+  if(valid.length<Math.max(20,Math.floor(questions.length*.7)))return{blocked:false,message:''};
+
+  const counts=valid.reduce((map,item)=>{map[item.v]=(map[item.v]||0)+1;return map;},{});
+  const repeatedRatio=Math.max(...Object.values(counts))/valid.length;
+
+  const byAxis={};
+  valid.forEach(({q,v})=>{
+    const key=q.axisKey||q.axis||'unknown';
+    byAxis[key] ||= {direct:[],reverse:[]};
+    const adjusted=q.reverse?8-v:v;
+    (q.reverse?byAxis[key].reverse:byAxis[key].direct).push(adjusted);
+  });
+  const axisChecks=Object.values(byAxis).filter(group=>group.direct.length>=2&&group.reverse.length>=2);
+  const contradictoryAxes=axisChecks.filter(group=>{
+    const mean=values=>values.reduce((sum,value)=>sum+value,0)/values.length;
+    return Math.abs(mean(group.direct)-mean(group.reverse))>=2.5;
+  }).length;
+  const contradictionRate=axisChecks.length?contradictoryAxes/axisChecks.length:0;
+  const blocked=repeatedRatio>=0.65 || (axisChecks.length>=2 && contradictionRate>=0.5);
+  return{blocked,message:blocked?materialShortageMessage():''};
+}
+
 async function callAI(scores,ti,compi){
+  const qualityGate=assessAnswerQuality();
+  _ai1GateBlocked=qualityGate.blocked;
+  _ai1GateMessage=qualityGate.message;
+  if(qualityGate.blocked){
+    await recoverPaidTokenForGate();
+    return null;
+  }
   const purLblAI={hire:'採用判断',grow:'組織育成',self:'自己理解'};
   const PB={
     hire:`## 分析目的：採用判断
@@ -2804,6 +2882,23 @@ ${PB[purpose]||PB.self}${styleContext}`;
   if(!res.ok)throw new Error('API '+res.status);
   const data=await res.json();
   return data.content[0].text;
+}
+
+async function recoverPaidTokenForGate(){
+  const token=sessionStorage.getItem('specv_token');
+  if(!token||token==='DEV'||window._recoveryIssued)return;
+  try{
+    const res=await fetch('/api/recover-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token_id:token})});
+    if(!res.ok)return;
+    const data=await res.json();
+    if(data.token?.id){
+      window._recoveryIssued=true;
+      window._tokenMarkedUsed=true;
+      _recoveryToken=data.token.id;
+      sessionStorage.setItem('specv_recovery_token',data.token.id);
+      console.info('[Token] 再受診用トークンを発行しました:',data.token.id);
+    }
+  }catch(error){console.warn('[Token] 再受診用トークン発行に失敗しました',error);}
 }
 </script>
 

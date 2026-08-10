@@ -46,7 +46,7 @@ module.exports = async function handler(req, res) {
       const { data, error } = await supabase
         .from('tokens')
         .insert(token)
-        .select('id, type, status, issued_at, note')
+        .select('id, type, status, issued_at, note, org_id, department_id, announced_at, deadline, announced_by')
         .single();
 
       if (error) throw error;
@@ -76,7 +76,7 @@ module.exports = async function handler(req, res) {
         .from('tokens')
         .update(updates)
         .eq('id', id)
-        .select('id, type, status, issued_at, note')
+        .select('id, type, status, issued_at, note, org_id, department_id, announced_at, deadline, announced_by')
         .single();
 
       if (error) throw error;
@@ -110,7 +110,7 @@ function isAuthorized(req) {
 async function listTokens() {
   const { data, error } = await supabase
     .from('tokens')
-    .select('id, type, status, issued_at, note')
+    .select('id, type, status, issued_at, note, org_id, department_id, announced_at, deadline, announced_by')
     .order('id', { ascending: true });
 
   if (error) throw error;
@@ -126,7 +126,12 @@ function normalizeInputToken(raw) {
     type,
     status,
     issued_at: raw.issued_at || new Date().toISOString(),
-    note: raw.note || ''
+    note: raw.note || '',
+    org_id: String(raw.org_id || '').trim() || null,
+    department_id: String(raw.department_id || '').trim() || null,
+    announced_at: raw.announced_at || null,
+    deadline: raw.deadline || null,
+    announced_by: String(raw.announced_by || '').trim() || null
   };
 }
 
@@ -141,7 +146,12 @@ function normalizeOutputToken(token) {
     type: token.type,
     status,
     issued_at: formatDate(token.issued_at),
-    note: token.note || ''
+    note: token.note || '',
+    org_id: token.org_id || '',
+    department_id: token.department_id || '',
+    announced_at: token.announced_at || '',
+    deadline: token.deadline || '',
+    announced_by: token.announced_by || ''
   };
 }
 
