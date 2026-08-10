@@ -670,6 +670,7 @@ async function unlockAdmin(password, showErrors = false) {
   const error = document.getElementById('authError');
   try {
     await loadTokens(password);
+    await loadDepartments(password);
     sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
     document.getElementById('authOverlay').style.display = 'none';
     document.getElementById('adminShell').classList.remove('locked');
@@ -688,7 +689,6 @@ async function loadTokens(password) {
     tokens = Array.isArray(data.tokens) ? data.tokens : [];
     renderTable();
     updateStats();
-    await loadDepartments(password);
   } catch (error) {
     console.error(error);
     showToast('トークン一覧を読み込めませんでした');
