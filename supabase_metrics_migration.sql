@@ -22,6 +22,25 @@ create table if not exists public.reminder_logs (
 create index if not exists reminder_logs_token_id_idx
   on public.reminder_logs (token_id);
 
+alter table public.departments enable row level security;
+alter table public.reminder_logs enable row level security;
+
+drop policy if exists service_role_all on public.departments;
+create policy service_role_all
+  on public.departments
+  for all
+  to service_role
+  using (true)
+  with check (true);
+
+drop policy if exists service_role_all on public.reminder_logs;
+create policy service_role_all
+  on public.reminder_logs
+  for all
+  to service_role
+  using (true)
+  with check (true);
+
 alter table public.tokens add column if not exists org_id text;
 alter table public.tokens add column if not exists department_id uuid references public.departments(id) on delete set null;
 alter table public.tokens add column if not exists announced_at timestamptz;
