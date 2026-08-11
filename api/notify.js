@@ -66,6 +66,48 @@ async function markTokenUsedWithRetry(tokenId, maxRetries = 3) {
   return { ok: false };
 }
 
+// 組織に発行されたトークンだけ、集計専用の最小スナップショットを保存する。
+// 個人情報やAI本文は保存せず、同一トークンは常に1件へ更新する。
+async function saveOrganizationAssessment(d) {
+  const tokenId = String(d.token_id || '').trim().toUpperCase();
+  if (!tokenId || tokenId === 'DEV') return { ok: true, skipped: true };
+
+  const { data: token, error: tokenError } = await supabase
+    .from('tokens')
+    .select('id, org_id, department_id')
+    .eq('id', tokenId)
+    .maybeSingle();
+  if (tokenError) throw tokenError;
+  if (!token || !token.org_id) return { ok: true, skipped: true };
+
+  const assessment = {
+    token_id: token.id,
+    org_id: token.org_id,
+    department_id: token.department_id || null,
+    completed_at: d.timestamp || new Date().toISOString(),
+    type_name: String(d.type_name || '').trim(),
+    axis_suishinryoku: score(d.axis_suishinryoku),
+    axis_doku: score(d.axis_doku),
+    axis_kaihoudu: score(d.axis_kaihoudu),
+    axis_jikoniinti: score(d.axis_jikoniinti),
+    axis_tamashii: score(d.axis_tamashii),
+    axis_ai: score(d.axis_ai),
+    updated_at: new Date().toISOString()
+  };
+  if (!assessment.type_name) return { ok: false, skipped: true };
+
+  const { error } = await supabase
+    .from('organization_assessments')
+    .upsert(assessment, { onConflict: 'token_id' });
+  if (error) throw error;
+  return { ok: true };
+}
+
+function score(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 && number <= 7 ? number : 0;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -89,6 +131,15 @@ module.exports = async function handler(req, res) {
     let tokenResult = { ok: true, skipped: true };
     if (d.token_id) {
       tokenResult = await markTokenUsedWithRetry(d.token_id);
+    }
+
+    // 集計保存に失敗しても、診断完了・トークン処理・通知を止めない。
+    let organizationMapResult = { ok: true, skipped: true };
+    try {
+      organizationMapResult = await saveOrganizationAssessment(d);
+    } catch (error) {
+      console.warn('[Notify] 組織マップ保存をスキップ:', error && error.message);
+      organizationMapResult = { ok: false };
     }
 
     // === 2. メール送信 ===
@@ -152,6 +203,7 @@ ${JSON.stringify(d, null, 2)}
     return res.status(200).json({
       ok: true,
       token: tokenResult,
+      organization_map: organizationMapResult,
       mail: mailResult,
     });
 

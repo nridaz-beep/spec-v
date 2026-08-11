@@ -444,6 +444,8 @@
   .department-field input, .department-field select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:10px 12px; font:13px 'Noto Sans JP',sans-serif; }
   .department-field input:focus, .department-field select:focus { outline:none; border-color:var(--gold-dim); }
   .department-list { grid-column:1 / -1; color:var(--muted); font-size:12px; line-height:1.7; }
+  .map-access-panel { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:24px; }
+  .map-access-panel .map-key { grid-column:1 / -1; min-height:20px; color:var(--gold); font:12px 'DM Mono',monospace; overflow-wrap:anywhere; }
 
   @media (max-width: 768px) {
     body { padding: 18px 14px 28px; }
@@ -471,6 +473,7 @@
     .toast { left: 14px; right: 14px; bottom: 14px; text-align: center; }
     .department-panel { grid-template-columns: 1fr 1fr; }
     .department-panel .btn { grid-column: 1 / -1; justify-content:center; }
+    .map-access-panel { grid-template-columns:1fr; }
   }
 
   @media (max-width: 430px) {
@@ -548,6 +551,15 @@
   </div>
   <button class="btn btn-outline" type="button" onclick="registerDepartment()">部署を登録</button>
   <div class="department-list" id="departmentList">登録済み部署を読み込み中…</div>
+</section>
+
+<section class="map-access-panel" aria-labelledby="mapAccessTitle">
+  <div class="department-field">
+    <label id="mapAccessTitle" for="mapOrgInput">組織マップ用 組織ID（UUID）</label>
+    <input id="mapOrgInput" type="text" placeholder="organizations.id を入力">
+  </div>
+  <button class="btn btn-paid" type="button" onclick="issueOrganizationMapAccessKey()">アクセスキーを発行</button>
+  <div class="map-key" id="mapAccessKey">発行したキーは組織担当者へ一度だけ共有してください。</div>
 </section>
 
 <!-- Filter tabs -->
@@ -639,6 +651,7 @@ let currentSearch = '';
 let pendingType = 'free';
 let departments = [];
 const ADMIN_DEPARTMENTS_API = '/api/admin-departments';
+const ADMIN_ORG_MAP_ACCESS_API = '/api/admin-organization-map-access';
 
 // ============================================================
 // 初期化
@@ -734,6 +747,23 @@ async function registerDepartment() {
   } catch (error) {
     console.error(error);
     showToast('部署を登録できませんでした');
+  }
+}
+
+async function issueOrganizationMapAccessKey() {
+  const orgId = document.getElementById('mapOrgInput').value.trim();
+  if (!orgId) {
+    showToast('組織IDを入力してください');
+    return;
+  }
+  try {
+    const data = await requestAdminOrganizationMapAccess({ method:'POST', body:{ org_id:orgId } });
+    const url = `${location.origin}/organization-map.html?org=${encodeURIComponent(orgId)}`;
+    document.getElementById('mapAccessKey').textContent = `URL: ${url}  /  アクセスキー: ${data.access_key}`;
+    showToast('組織マップのアクセスキーを発行しました');
+  } catch (error) {
+    console.error(error);
+    showToast('アクセスキーを発行できませんでした');
   }
 }
 
@@ -1008,6 +1038,16 @@ async function requestAdminDepartments(options = {}) {
     if (response.status === 401) throw new Error('unauthorized');
     throw new Error(data.error || `request_failed_${response.status}`);
   }
+  return data;
+}
+
+async function requestAdminOrganizationMapAccess(options = {}) {
+  const password = sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+  const headers = { 'x-admin-password': password };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const response = await fetch(ADMIN_ORG_MAP_ACCESS_API, { method: options.method || 'GET', headers, body: options.body ? JSON.stringify(options.body) : undefined });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `request_failed_${response.status}`);
   return data;
 }
 
