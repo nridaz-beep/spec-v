@@ -5,8 +5,8 @@
 const Stripe = require('stripe');
 
 const PRICE_ID = 'price_1TfcMhLW5Fj0QPF9qQ5NJEcu';
-const SUCCESS_URL = 'https://spec-v.vercel.app/specv_form_v6_integrated_37.html';
-const CANCEL_URL = 'https://spec-v.vercel.app/specv_form_v6_integrated_37.html?checkout=cancel';
+const SUCCESS_URL = 'https://spec-v.vercel.app/checkout-result.html';
+const CANCEL_URL = 'https://spec-v.vercel.app/checkout-result.html?checkout=cancel';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'missing-key');
 
