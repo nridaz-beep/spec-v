@@ -161,7 +161,7 @@ module.exports = async function handler(req, res) {
 ■ タイプ
 ${d.type_name}（Lv.${d.level} ${d.level_name}）
 ${d.type_desc}
-気質：${d.temperament}
+性向：${d.temperament}
 モード：${d.mode}
 ストレス：${d.stress}
 
