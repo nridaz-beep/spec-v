@@ -1,0 +1,8 @@
+{
+  "functions": {
+    "api/deep-report.js": { "includeFiles": "prompts/*.md", "maxDuration": 300 }
+  },
+  "rewrites": [
+    { "source": "/prompts/:path*", "destination": "/api/deep-report" }
+  ]
+}
