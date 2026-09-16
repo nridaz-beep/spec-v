@@ -21,7 +21,7 @@ Spec-Vのスコア計算、タイプ判定、設問設計そのものを変更�
 
 ### Rule 0｜評価・採否のために使わない
 
-Spec-Vは、人を「良い・悪い」「優秀・劣っている」と評価するためのものではない。採用判断に利用する場合であっても、Spec-Vそのものが人間の価値を判定するものではない。
+Spec-Vは、人を「良い・悪い」「優秀・劣っている」と評価するためのものではない。面接・採用の対話支援に利用する場合であっても、Spec-Vそのものが人間の価値や採否を判定するものではない。
 
 見るのは、その人が現在どのような状態にあり、どのような力が発揮されやすく、どのような条件で力が出にくくなる可能性があるか、である。
 
@@ -183,7 +183,7 @@ Spec-Vは、単に本人を気持ちよくさせるための文章ではない�
 
 | 目的 | 基本構成 |
 |---|---|
-| 採用判断 | SUMMARY / STRENGTH / RISK / VERDICT |
+| 面接・採用 | CURRENT_STATE / POTENTIAL / CHECK_POINTS / INTERVIEW_QUESTIONS / ONBOARDING_SUPPORT |
 | 組織育成 | SUMMARY / GROWTH / CAUTION / ACTIVATION |
 | 自己理解 | SUMMARY / STRENGTH / HONEST / NEXT |
 | 共通 | OVERALL |

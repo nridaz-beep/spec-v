@@ -1,4 +1,6 @@
-export default async function handler(req, res) {
+const { verifyTokenClaim } = require('./_token-claim');
+
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -6,6 +8,12 @@ export default async function handler(req, res) {
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     return res.status(500).json({ error: 'API key not configured' });
+  }
+
+  const localDev = !process.env.VERCEL && process.env.NODE_ENV !== 'production' && req.headers['x-specv-dev'] === '1';
+  const tokenId = String(req.headers['x-specv-token'] || '').trim().toUpperCase();
+  if (!localDev && !verifyTokenClaim(req.headers['x-specv-claim'], tokenId).valid) {
+    return res.status(401).json({ error: 'diagnosis_session_required' });
   }
 
   try {

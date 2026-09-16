@@ -3,6 +3,7 @@
 // Vercel Serverless Functions (CommonJS)
 
 const { createClient } = require('@supabase/supabase-js');
+const { issueTokenClaim, verifyTokenClaim } = require('./_token-claim');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey =
@@ -18,7 +19,7 @@ const supabase = createClient(
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-specv-token, x-specv-claim');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -84,7 +85,9 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ valid: false, reason: 'invalid_status' });
     }
 
-    return res.status(200).json({ valid: true, token_id: data.id, type: data.type });
+    const claim = issueTokenClaim(data.id, data.type);
+    if (!claim) return res.status(503).json({ valid: false, reason: 'claim_secret_missing' });
+    return res.status(200).json({ valid: true, token_id: data.id, type: data.type, claim });
   }
 
   // POST /api/token
@@ -100,6 +103,8 @@ module.exports = async function handler(req, res) {
     const tokenId = String(rawTokenId || '').trim().toUpperCase();
 
     if (!tokenId) return res.status(400).json({ success: false, reason: 'token_missing' });
+    const claim = verifyTokenClaim(body.claim, tokenId);
+    if (!claim.valid) return res.status(403).json({ success: false, reason: claim.reason });
 
     const { data, error } = await supabase
       .from('tokens')

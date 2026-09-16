@@ -3,6 +3,7 @@
 // クライアント任せにしないことで、ネットワーク不安定・ブラウザ閉じ・JSエラーの影響を受けない
 
 const { createClient } = require('@supabase/supabase-js');
+const { verifyTokenClaim } = require('./_token-claim');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey =
@@ -109,9 +110,9 @@ function score(value) {
 }
 
 module.exports = async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-specv-token, x-specv-claim');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
@@ -127,11 +128,15 @@ module.exports = async function handler(req, res) {
     const toEmail = process.env.NOTIFY_EMAIL;
     const d = data || {};
 
+    const tokenId = String(d.token_id || '').trim().toUpperCase();
+    const claim = verifyTokenClaim(d.claim, tokenId);
+    if (!tokenId || tokenId === 'DEV' || !claim.valid) {
+      return res.status(401).json({ ok: false, reason: 'diagnosis_session_required' });
+    }
+
     // === 1. トークン使用済み更新（サーバー側で確実に実行） ===
     let tokenResult = { ok: true, skipped: true };
-    if (d.token_id) {
-      tokenResult = await markTokenUsedWithRetry(d.token_id);
-    }
+    tokenResult = await markTokenUsedWithRetry(tokenId);
 
     // 集計保存に失敗しても、診断完了・トークン処理・通知を止めない。
     let organizationMapResult = { ok: true, skipped: true };
@@ -188,7 +193,7 @@ ${d.deep_input || '（なし）'}
 トークン使用済み更新：${tokenResult.ok ? 'OK' : 'NG（要手動確認）'}
 
 ■ 全データJSON（PDF生成用）
-${JSON.stringify(d, null, 2)}
+${JSON.stringify(Object.fromEntries(Object.entries(d).filter(([key]) => key !== 'claim')), null, 2)}
 `.trim();
 
       mailResult = await sendMailWithRetry(apiKey, {

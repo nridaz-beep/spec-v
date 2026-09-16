@@ -1,5 +1,6 @@
 // AI材料不足時の有料トークン救済API
 const { createClient } = require('@supabase/supabase-js');
+const { verifyTokenClaim } = require('./_token-claim');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
@@ -11,6 +12,7 @@ module.exports = async function handler(req, res) {
 
   const tokenId = String((req.body || {}).token_id || '').trim().toUpperCase();
   if (!/^P[A-Z0-9]+$/.test(tokenId)) return res.status(400).json({ error: 'paid_token_required' });
+  if (!verifyTokenClaim((req.body || {}).claim, tokenId).valid) return res.status(403).json({ error: 'diagnosis_session_required' });
 
   try {
     const { data: source, error: sourceError } = await supabase

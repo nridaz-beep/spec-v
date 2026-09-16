@@ -547,6 +547,9 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
 </style>
 
 <script>
+window.SPECV_LOCAL_DEV = new URLSearchParams(location.search).has('dev') &&
+  ['localhost', '127.0.0.1'].includes(location.hostname);
+
 function submitTokenGate() {
   const input = document.getElementById('tg-token-input');
   const token = input ? input.value.trim().toUpperCase() : '';
@@ -590,7 +593,7 @@ async function startCheckout() {
   // トークンゲート処理
   const params = new URLSearchParams(location.search);
   const token = params.get('token');
-  const isDev = params.has('dev');
+  const isDev = window.SPECV_LOCAL_DEV;
   const gate = document.getElementById('token-gate');
   const msg = document.getElementById('tg-msg');
   const spinner = document.getElementById('tg-spinner');
@@ -648,6 +651,7 @@ async function startCheckout() {
     if(data.valid){
       // 有効 → ゲート解除・トークンをセッションに保存
       sessionStorage.setItem('specv_token', token);
+      sessionStorage.setItem('specv_token_claim', data.claim || '');
       hideGate();
     } else if(data.reason === 'already_used'){
       showGate('このURLはすでに使用済みです。\n診断は1回のみ有効です。', false, true, false);
@@ -758,8 +762,8 @@ async function startCheckout() {
       <div class="purpose-grid">
         <button class="purpose-btn" onclick="selPurpose('hire',this)">
           <span class="pur-icon">🔍</span>
-          <span class="pur-name">採用判断</span>
-          <span class="pur-hint">この人を組織に入れるべきか</span>
+          <span class="pur-name">面接・採用</span>
+          <span class="pur-hint">対話を深める材料として使う</span>
         </button>
         <button class="purpose-btn" onclick="selPurpose('grow',this)">
           <span class="pur-icon">🌱</span>
@@ -781,7 +785,7 @@ async function startCheckout() {
     <!-- DEVモード：?devパラメータ時のみ表示 -->
     <div id="devBar" style="display:none;margin-top:24px;padding:16px 20px;background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.2);border-radius:var(--radius);align-items:center;gap:12px;flex-wrap:wrap;">
       <span style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:var(--accent);text-transform:uppercase;flex-shrink:0;">DEV MODE</span>
-      <button onclick="devSkip('hire')" style="font-family:'Syne',sans-serif;font-size:11px;padding:7px 14px;border-radius:100px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;">採用判断で結果へ</button>
+      <button onclick="devSkip('hire')" style="font-family:'Syne',sans-serif;font-size:11px;padding:7px 14px;border-radius:100px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;">面接・採用で結果へ</button>
       <button onclick="devSkip('grow')" style="font-family:'Syne',sans-serif;font-size:11px;padding:7px 14px;border-radius:100px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;">組織育成で結果へ</button>
       <button onclick="devSkip('self')" style="font-family:'Syne',sans-serif;font-size:11px;padding:7px 14px;border-radius:100px;border:1px solid var(--border);background:var(--surface2);color:var(--text-muted);cursor:pointer;">自己理解で結果へ</button>
     </div>
@@ -1313,6 +1317,16 @@ function cleanAIText(text){
     .trim();
 }
 
+function specvApiHeaders(){
+  const headers={'Content-Type':'application/json'};
+  const token=sessionStorage.getItem('specv_token')||'';
+  const claim=sessionStorage.getItem('specv_token_claim')||'';
+  if(token)headers['x-specv-token']=token;
+  if(claim)headers['x-specv-claim']=claim;
+  if(window.SPECV_LOCAL_DEV)headers['x-specv-dev']='1';
+  return headers;
+}
+
 // Before/After管理
 let _isRediag=false; // 再診断フラグ
 // PDF用AIテキスト保存
@@ -1329,8 +1343,8 @@ async function markCurrentTokenUsed(){
     try{
       const res = await fetch('/api/token', {
         method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ token_id: token })
+        headers: specvApiHeaders(),
+        body: JSON.stringify({ token_id: token, claim: sessionStorage.getItem('specv_token_claim') || '' })
       });
 
       if(res.ok){
@@ -1381,8 +1395,8 @@ async function retryPendingTokens(){
       try{
         const res = await fetch('/api/token', {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({ token_id: token })
+          headers: specvApiHeaders(),
+          body: JSON.stringify({ token_id: token, claim: sessionStorage.getItem('specv_token_claim') || '' })
         });
         if(res.ok || res.status === 409){
           const cur = JSON.parse(localStorage.getItem('specv_pending_token')||'[]');
@@ -1406,7 +1420,7 @@ async function retryPendingNotify(){
       try{
         const res = await fetch('/api/notify', {
           method: 'POST',
-          headers: {'Content-Type':'application/json'},
+          headers: specvApiHeaders(),
           body: JSON.stringify(payload)
         });
         if(res.ok){
@@ -1432,7 +1446,7 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(ctaBody)ctaBody.textContent=SECOND_ANALYSIS_CTA.body;
   if(ctaButton)ctaButton.textContent=SECOND_ANALYSIS_CTA.button;
   const devBar=document.getElementById('devBar');
-  if(devBar && new URLSearchParams(location.search).has('dev')){
+  if(devBar && window.SPECV_LOCAL_DEV){
     devBar.style.display='flex';
   }
   // 未送信キューの再送（バックグラウンド）
@@ -1480,7 +1494,7 @@ function openPrintPage(){
   const top3=srt.slice(0,3),bot3=[...compi].sort((a,b)=>a.score-b.score).slice(0,3);
 
   // AI取得（直接変数から）
-  const ALB={hire:{tags:['SUMMARY','STRENGTH','RISK','VERDICT','OVERALL'],lbls:['この人物の本質','組織への貢献','採用時の注意点','活きるポジション','採用判断の総括']},grow:{tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL'],lbls:['現在地','成長の鍵','育成の注意点','最も力が出る環境','育成方針の総括']},self:{tags:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],lbls:['今の状態','本来の力','正直な指摘','次に意識すること','総合評価']}};
+  const ALB={hire:{tags:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT'],lbls:['現在の状態から見える特徴','活かせる可能性','追加確認事項','面接質問','入社後の環境・支援']},grow:{tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL'],lbls:['現在地','成長の鍵','育成の注意点','最も力が出る環境','育成方針の総括']},self:{tags:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],lbls:['今の状態','本来の力','正直な指摘','次に意識すること','総合評価']}};
   const conf=ALB[purpose]||ALB.self;
   const ai1Blocks=[];
   if(_lastAiText){
@@ -1499,14 +1513,14 @@ function openPrintPage(){
     <div class="pdf-gold-bar" style="background:linear-gradient(90deg,${tcol},#c8a96e,#e8c878,${tcol});"></div>
     ${pgHead(1)}
     <div style="display:flex;gap:0;border:1px solid #e0d0a0;border-radius:3px;overflow:hidden;margin-bottom:10px;background:#f5f0e4;">
-      ${[['年齢',uProfile.age],['職位',uProfile.role],['業種',uProfile.industry],['目的',purpose==='hire'?'採用判断':purpose==='grow'?'組織育成':'自己理解']].map(([l,v])=>`<div style="flex:1;padding:8px 12px;border-right:1px solid #e0d0a0;"><div style="font-size:7px;letter-spacing:.3em;color:${tcol};text-transform:uppercase;margin-bottom:2px;">${l}</div><div style="font-size:11px;color:#444;font-weight:500;">${v||'—'}</div></div>`).join('')}
+      ${[['年齢',uProfile.age],['職位',uProfile.role],['業種',uProfile.industry],['目的',purpose==='hire'?'面接・採用':purpose==='grow'?'組織育成':'自己理解']].map(([l,v])=>`<div style="flex:1;padding:8px 12px;border-right:1px solid #e0d0a0;"><div style="font-size:7px;letter-spacing:.3em;color:${tcol};text-transform:uppercase;margin-bottom:2px;">${l}</div><div style="font-size:11px;color:#444;font-weight:500;">${v||'—'}</div></div>`).join('')}
     </div>
     <div style="display:grid;grid-template-columns:1fr 80px;margin-bottom:12px;border:1px solid #e0d0a0;border-radius:3px;overflow:hidden;">
       <div style="padding:14px 16px;background:#f5f0e4;border-right:1px solid #e0d0a0;">
         <div style="font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.5em;color:${tcol};text-transform:uppercase;margin-bottom:3px;">Human Type</div>
         <div style="font-size:38px;font-weight:700;color:${tcol};line-height:1;margin-bottom:5px;">${ti.q}</div>
         <div style="font-size:10px;color:#666;line-height:1.7;margin-bottom:8px;">${ti.s||''}</div>
-        <div style="display:inline-flex;align-items:center;background:#fff;border:1px solid ${tcol};border-radius:100px;padding:2px 12px;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:${tcol};">高貢献候補</div>
+        <div style="display:inline-flex;align-items:center;background:#fff;border:1px solid ${tcol};border-radius:100px;padding:2px 12px;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:${tcol};">現在の状態パターン</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;">
           <div style="background:rgba(255,255,255,.72);border:1px solid #e0d0a0;border-radius:3px;padding:7px 9px;">
             <div style="font-family:'Syne',sans-serif;font-size:6px;font-weight:700;letter-spacing:.28em;color:${tcol};text-transform:uppercase;margin-bottom:5px;">Tendency</div>
@@ -1614,7 +1628,7 @@ function openPrintPage(){
   const p3html=`
     <div class="pdf-gold-bar" style="background:linear-gradient(90deg,${tcol},#c8a96e,#e8c878,${tcol});"></div>
     ${pgHead(3)}
-    ${ai1HTML?`${sec('AI Analysis — 1次分析レポート')}<div style="background:#faf8f3;border:1px solid #e0d0a8;border-radius:3px;overflow:hidden;margin-bottom:14px;"><div style="background:#1a1714;padding:7px 13px;"><div style="font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.4em;color:#c8a96e;text-transform:uppercase;">${purpose==='hire'?'採用判断モード':purpose==='grow'?'組織育成モード':'自己理解モード'}</div></div><div style="padding:12px;">${ai1HTML}</div></div>`:''}
+    ${ai1HTML?`${sec('AI Analysis — 1次分析レポート')}<div style="background:#faf8f3;border:1px solid #e0d0a8;border-radius:3px;overflow:hidden;margin-bottom:14px;"><div style="background:#1a1714;padding:7px 13px;"><div style="font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.4em;color:#c8a96e;text-transform:uppercase;">${purpose==='hire'?'面接・対話支援モード':purpose==='grow'?'組織育成モード':'自己理解モード'}</div></div><div style="padding:12px;">${ai1HTML}</div></div>`:''}
     ${ai2HTML?`${sec('Deep Dive — 2次分析レポート')}${ai2HTML}`:''}
     ${actHTML?`${sec('Action Plan — 今日から動く')}${actHTML}`:''}
     ${sec('Consultant Note — コンサルメモ')}
@@ -1665,6 +1679,7 @@ function selPurpose(p,el){
 
 // DEV：ワンクリックで結果画面へ（のりんぐさんデータ）
 async function devSkip(pur){
+  if(!window.SPECV_LOCAL_DEV)return;
   purpose=pur;
   uProfile={age:'40代前半',role:'独立・フリーランス',industry:'コンサルティング（経営コンサルタント）',job:'経営コンサルタント'};
   // のりんぐさん想定スコア
@@ -2051,7 +2066,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   window.addEventListener('popstate',function(){history.pushState(null,null,location.href);});
 
   // プロフィールバー
-  const purLbl={hire:'採用判断',grow:'組織育成',self:'自己理解'};
+  const purLbl={hire:'面接・採用',grow:'組織育成',self:'自己理解'};
   document.getElementById('resProfBar').innerHTML=`
     <div class="pb-item"><span class="pb-label">年齢</span><span class="pb-val">${uProfile.age}</span></div>
     <div class="pb-divider"></div>
@@ -2259,7 +2274,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
 
   // AI分析
   const ALB={
-    hire:{t:'AI Analysis — 採用判断レポート',tags:['SUMMARY','STRENGTH','RISK','VERDICT'],lbls:['この人物の本質','組織への貢献','採用時の注意点','採用判断の総括']},
+    hire:{t:'AI Analysis — 面接・対話支援レポート',tags:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT'],lbls:['現在の状態から見える特徴','活かせる可能性','追加確認事項','面接質問','入社後の環境・支援']},
     grow:{t:'AI Analysis — 組織育成レポート',tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION'],lbls:['この人物の現在地','成長の鍵','育成の注意点','最も力が出る環境']},
     self:{t:'AI Analysis — 自己理解レポート',tags:['SUMMARY','STRENGTH','HONEST','NEXT'],lbls:['あなたの今の状態','本来の力','正直な指摘','次に意識すること']},
   };
@@ -2338,8 +2353,6 @@ async function finalizeDiagnosis(diag){
   _lastScores=scores; _lastTi=ti; _lastCompi=compi; _lastMode=mode; _lastKish=kish;
   try{localStorage.setItem('sv_scores',JSON.stringify(scores));localStorage.setItem('sv_ti',JSON.stringify(ti));localStorage.setItem('sv_compi',JSON.stringify(compi));localStorage.setItem('sv_mode',JSON.stringify(mode));localStorage.setItem('sv_kish',JSON.stringify(kish));localStorage.setItem('sv_purpose',purpose);localStorage.setItem('sv_profile',JSON.stringify(uProfile));localStorage.setItem('sv_temporal_answers',JSON.stringify(temporalAnswers));localStorage.setItem('sv_episode_answers',JSON.stringify(episodeAnswers));}catch(e){}
 
-  sendDiagnosisData(scores,ti,compi,kish,mode,null,'',null);
-
   const saveData={
     scores, type:ti.q, lv:ti.lv, lvName:ti.lvN,
     mode:Object.entries(mode.pct).sort((a,b)=>b[1]-a[1])[0][0],
@@ -2363,11 +2376,12 @@ async function finalizeDiagnosis(diag){
       try{localStorage.setItem('sv_ai1',aiText);}catch(e){}
     }
   }catch(e){console.error(e);}
-  if(!_ai1GateBlocked)await markCurrentTokenUsed();
+  // AI分析が成功した結果だけを正式完了として通知・消費する。
+  // AI失敗時にトークンだけ先に消費しない。
   clearInterval(iv);
   showResult(scores,ti,compi,kish,mode,aiText);
   window._pendingNotify={scores,ti,compi,kish,mode,aiText};
-  sendDiagnosisData(scores,ti,compi,kish,mode,aiText,'',null);
+  if(!_ai1GateBlocked && aiText)sendDiagnosisData(scores,ti,compi,kish,mode,aiText,'',null);
 }
 
 // =============================
@@ -2395,7 +2409,7 @@ async function runSecondAnalysis(){
   document.getElementById('secondAnalysisBlocks').style.display='none';
   document.getElementById('secondAnalysisResult').scrollIntoView({behavior:'smooth',block:'start'});
 
-  const purLbl={hire:'採用判断',grow:'組織育成',self:'自己理解'};
+  const purLbl={hire:'面接・採用',grow:'組織育成',self:'自己理解'};
   const ct=compi.map(d=>`${d.label}:${d.score}`).join(' / ');
   const commentBlock=comment.length>0?`\n\n【ユーザー入力】\n${comment}`:'\n\n【ユーザー入力】\n（コメントなし。スコアと状態だけから読み解いてください）';
   const supplementalBlock=buildSupplementalInputBlock();
@@ -2406,6 +2420,7 @@ async function runSecondAnalysis(){
 絶対ルール：スコアの羅列をしない。因果と状態を語る。断定せず「可能性」「傾向」「読める」を使う。全体平均5.0超の場合、相対的に低い軸は「伸びしろ」として表現する。
 
 絶対出力禁止ワード：気質、性質、コンピテンシー、F気質、A気質、G気質、W気質、パーソナルスキャン、PS、M-IT、MIT、クラスター、原点距離、マイナスV人財、V人財、マイナスV、V人材
+面接・採用目的では、採用・不採用、合格・不合格、採否、人物の優劣、固定的な人格・能力評価を出力しない。面接担当者が本人との対話を深めるための仮説・確認事項・質問・環境支援だけを生成する。
 
 【分析目的】
 この分析は「${purLbl[purpose]||'自己理解'}目的」で使用する。
@@ -2433,7 +2448,7 @@ async function runSecondAnalysis(){
 
   try{
     const res=await fetch('/api/analyze',{
-      method:'POST',headers:{'Content-Type':'application/json'},
+      method:'POST',headers:specvApiHeaders(),
       body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1200,messages:[{role:'user',content:prompt}]}),
     });
     if(!res.ok)throw new Error('API '+res.status);
@@ -2537,13 +2552,13 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
       else if(q.sub==='発想モード消極')stressScores['発想モード']=v;
     });
     const topStress=Object.entries(stressScores).sort((a,b)=>b[1]-a[1])[0][0];
-    const purLbl={hire:'採用判断',grow:'組織育成',self:'自己理解'};
+    const purLbl={hire:'面接・採用',grow:'組織育成',self:'自己理解'};
     const kBadge=topK[0][0]+(topK[1]&&topK[1][1]>=topK[0][1]-12?'×'+topK[1][0]:'');
 
     // AIテキストをセクション分割
     const aiSec={};
     if(aiText){
-      ['SUMMARY','STRENGTH','HONEST','NEXT','GROWTH','CAUTION','ACTIVATION','RISK','VERDICT','OVERALL'].forEach(tag=>{
+      ['SUMMARY','STRENGTH','HONEST','NEXT','GROWTH','CAUTION','ACTIVATION','CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT','OVERALL'].forEach(tag=>{
         const m=aiText.match(new RegExp(`【${tag}】([\\s\\S]*?)(?=【|$)`));
         if(m)aiSec[tag]=m[1].trim();
       });
@@ -2552,6 +2567,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
     const payload={
       timestamp:new Date().toISOString(),
       token_id: sessionStorage.getItem('specv_token') || '', // サーバー側で使用済み更新に使う
+      claim: sessionStorage.getItem('specv_token_claim') || '',
       // プロフィール
       age:uProfile.age||'',
       position:uProfile.role||'',
@@ -2600,16 +2616,18 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
       mode_hassou:Math.round(mode.pct['発想モード']||0),
       // AI分析テキスト
       ai_summary:aiSec.OVERALL||aiSec.SUMMARY||'',
-      ai1_tag1:purpose==='hire'?'この人物の本質':purpose==='grow'?'この人物の現在地':'あなたの今の状態',
-      ai1_txt1:aiSec.SUMMARY||'',
-      ai1_tag2:purpose==='hire'?'組織への貢献':purpose==='grow'?'成長の鍵':'本来の力',
-      ai1_txt2:aiSec[purpose==='hire'?'STRENGTH':purpose==='grow'?'GROWTH':'STRENGTH']||'',
-      ai1_tag3:purpose==='hire'?'採用時の注意点':purpose==='grow'?'育成の注意点':'正直な指摘',
-      ai1_txt3:aiSec[purpose==='hire'?'RISK':'CAUTION']||aiSec.HONEST||'',
-      ai1_tag4:purpose==='hire'?'採用判断の総括':purpose==='grow'?'最も力が出る環境':'次に意識すること',
-      ai1_txt4:aiSec[purpose==='hire'?'VERDICT':purpose==='grow'?'ACTIVATION':'NEXT']||'',
-      yama_txt:aiSec.STRENGTH||aiSec.GROWTH||'',
-      tani_txt:aiSec.CAUTION||aiSec.RISK||'',
+      ai1_tag1:purpose==='hire'?'現在の状態から見える特徴':purpose==='grow'?'この人物の現在地':'あなたの今の状態',
+      ai1_txt1:purpose==='hire'?aiSec.CURRENT_STATE:aiSec.SUMMARY||'',
+      ai1_tag2:purpose==='hire'?'活かせる可能性':purpose==='grow'?'成長の鍵':'本来の力',
+      ai1_txt2:purpose==='hire'?aiSec.POTENTIAL:aiSec[purpose==='grow'?'GROWTH':'STRENGTH']||'',
+      ai1_tag3:purpose==='hire'?'追加確認事項':purpose==='grow'?'育成の注意点':'正直な指摘',
+      ai1_txt3:purpose==='hire'?aiSec.CHECK_POINTS:aiSec[purpose==='grow'?'CAUTION':'HONEST']||'',
+      ai1_tag4:purpose==='hire'?'面接質問':purpose==='grow'?'最も力が出る環境':'次に意識すること',
+      ai1_txt4:purpose==='hire'?aiSec.INTERVIEW_QUESTIONS:aiSec[purpose==='grow'?'ACTIVATION':'NEXT']||'',
+      ai1_tag5:purpose==='hire'?'入社後の環境・支援':'',
+      ai1_txt5:purpose==='hire'?aiSec.ONBOARDING_SUPPORT:'',
+      yama_txt:purpose==='hire'?aiSec.POTENTIAL:aiSec.STRENGTH||aiSec.GROWTH||'',
+      tani_txt:purpose==='hire'?aiSec.CHECK_POINTS:aiSec.CAUTION||'',
       // 2次分析
       deep_input:deepInput||'',
       deep_tag1:'状態の構造',
@@ -2634,7 +2652,7 @@ async function sendNotifyWithRetry(payload){
     try{
       const res = await fetch('/api/notify',{
         method:'POST',
-        headers:{'Content-Type':'application/json'},
+        headers:specvApiHeaders(),
         body:JSON.stringify(payload),
       });
       if(res.ok) return;
@@ -2796,7 +2814,7 @@ ${diffLines}
 【CHANGE_NEXT】この変化を踏まえて次にやるべきことを1〜2文で。具体的なアクションとして。`;
 
   const res=await fetch('/api/analyze',{
-    method:'POST',headers:{'Content-Type':'application/json'},
+    method:'POST',headers:specvApiHeaders(),
     body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1100,messages:[{role:'user',content:prompt}]}),
   });
   if(!res.ok)throw new Error('API '+res.status);
@@ -2896,16 +2914,17 @@ async function callAI(scores,ti,compi){
     await recoverPaidTokenForGate();
     return null;
   }
-  const purLblAI={hire:'採用判断',grow:'組織育成',self:'自己理解'};
+  const purLblAI={hire:'面接・採用',grow:'組織育成',self:'自己理解'};
   const PB={
-    hire:`## 分析目的：採用判断
-この分析は「採用判断目的」で使用する。採用側の経営者・人事責任者へのフィードバック。
-評価軸重み：魂★5・毒のなさ★5・愛★4・自己認知★4・解放度★3
-【SUMMARY】採用担当者視点で2〜3文。「入れたらどういう人物か」を率直に。
-【STRENGTH】採用したときに組織に何をもたらすか。強みを具体的なシーン・役割で。2〜3文。
-【RISK】採用時に気をつけるべき点。静水型・孤炎型は組織リスクを率直に。問題なければ伸びしろとして。2〜3文。
-【VERDICT】どういうポジション・環境なら活きるか。具体的に。2〜3文。
-【OVERALL】スコア全体を統合した総括。「今この人はどういう状態にいて、採用するとどうなるか」を1〜2文で端的に。`,
+    hire:`## 分析目的：面接・対話支援
+この分析は面接担当者が本人との対話を深めるための材料として使用する。採否・合否・人物の優劣は判定しない。
+評価軸は現在の状態、環境との相性、対話で確認できる仮説として扱い、固定的な人物評価や人格断定を避ける。
+【CURRENT_STATE】現在の状態から見える特徴を、可能性・傾向として2〜3文で。回答時点の状態と背景仮説を分けて書く。
+【POTENTIAL】活かせる可能性のある環境・役割・関わり方を2〜3文で。採用可否や優劣に結びつけない。
+【CHECK_POINTS】面接で追加確認すべき事項を2〜3点。診断結果を事実や結論として扱わず、本人に確認する質問の入口にする。
+【INTERVIEW_QUESTIONS】本人との対話を深める具体的な面接質問を3つ。誘導的・評価的な聞き方を避ける。
+【ONBOARDING_SUPPORT】入社後を想定した場合に検討できる環境・支援を2〜3文で。採用を前提に断定しない。
+【OVERALL】診断だけで採否を決めず、面接・実績・本人の希望など複数の情報を組み合わせて対話するための注意点を1〜2文で。`,
     grow:`## 分析目的：組織育成
 この分析は「組織育成目的」で使用する。上司・育成担当者へのフィードバック。
 評価軸重み：愛★5・自己認知★5・魂★4・解放度★4・毒のなさ★4
@@ -2962,7 +2981,7 @@ async function callAI(scores,ti,compi){
 ${PB[purpose]||PB.self}${styleContext}`;
 
   const res=await fetch('/api/analyze',{
-    method:'POST',headers:{'Content-Type':'application/json'},
+    method:'POST',headers:specvApiHeaders(),
     body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1500,messages:[{role:'user',content:prompt}]}),
   });
   if(!res.ok)throw new Error('API '+res.status);
@@ -2974,7 +2993,7 @@ async function recoverPaidTokenForGate(){
   const token=sessionStorage.getItem('specv_token');
   if(!token||token==='DEV'||window._recoveryIssued)return;
   try{
-    const res=await fetch('/api/recover-token',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token_id:token})});
+    const res=await fetch('/api/recover-token',{method:'POST',headers:specvApiHeaders(),body:JSON.stringify({token_id:token,claim:sessionStorage.getItem('specv_token_claim')||''})});
     if(!res.ok)return;
     const data=await res.json();
     if(data.token?.id){
