@@ -55,7 +55,8 @@ async function markTokenUsedWithRetry(tokenId, maxRetries = 3) {
         .select('id, status')
         .maybeSingle();
 
-      if (!error) return { ok: true, data };
+      if (!error && data) return { ok: true, data };
+      if (!error && !data) return { ok: false, reason: 'token_not_found_or_inactive' };
       console.warn(`[Notify] Token更新失敗 (attempt ${i+1}):`, error.message);
     } catch (e) {
       console.warn(`[Notify] Token更新接続失敗 (attempt ${i+1}):`, e.message);
@@ -133,6 +134,9 @@ module.exports = async function handler(req, res) {
     if (!tokenId || tokenId === 'DEV' || !claim.valid) {
       return res.status(401).json({ ok: false, reason: 'diagnosis_session_required' });
     }
+    if (!supabaseUrl || !supabaseKey || !apiKey || !toEmail) {
+      return res.status(503).json({ ok: false, reason: 'notification_config_missing' });
+    }
 
     // === 1. トークン使用済み更新（サーバー側で確実に実行） ===
     let tokenResult = { ok: true, skipped: true };
@@ -204,9 +208,10 @@ ${JSON.stringify(Object.fromEntries(Object.entries(d).filter(([key]) => key !== 
       });
     }
 
-    // 200を返す（クライアント側のリトライ判断材料として詳細も返す）
-    return res.status(200).json({
-      ok: true,
+    // 失敗を成功扱いにせず、クライアントの再送キューへ回す。
+    const ok = tokenResult.ok && mailResult.ok && !mailResult.skipped;
+    return res.status(ok ? 200 : 503).json({
+      ok,
       token: tokenResult,
       organization_map: organizationMapResult,
       mail: mailResult,
@@ -214,7 +219,6 @@ ${JSON.stringify(Object.fromEntries(Object.entries(d).filter(([key]) => key !== 
 
   } catch (err) {
     console.error('notify error:', err);
-    // 500ではなく200で返す（クライアントのリトライループ防止＋画面影響なし）
-    return res.status(200).json({ ok: false, error: err.message });
+    return res.status(500).json({ ok: false, reason: 'notification_failed' });
   }
 };
