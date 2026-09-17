@@ -9,13 +9,13 @@
   @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=DM+Mono:wght@400;500&display=swap');
 
   :root {
-    --bg: #0d0d0f;
-    --surface: #16161a;
-    --border: #2a2a30;
-    --gold: #b8943a;
-    --gold-dim: #7a6228;
-    --text: #e8e6e0;
-    --muted: #6b6a65;
+    --bg: #091321;
+    --surface: #111f32;
+    --border: #2b3c51;
+    --gold: #ddbd83;
+    --gold-dim: #8f7650;
+    --text: #edf2f8;
+    --muted: #a0b0c4;
     --free: #3a8a5a;
     --paid: #b8943a;
     --used: #444;
@@ -169,6 +169,29 @@
     border-radius: 10px;
     overflow: hidden;
   }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 18px 0 32px;
+  }
+
+  .page-btn {
+    min-width: 38px;
+    height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+  }
+  .page-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .page-btn.active { background: var(--gold); border-color: var(--gold); color: #091321; }
+  .page-summary { width: 100%; text-align: center; color: var(--muted); font-size: 11px; }
 
   table {
     width: 100%;
@@ -590,6 +613,7 @@
     <tbody id="tokenTable"></tbody>
   </table>
 </div>
+<nav class="pagination" id="tokenPagination" aria-label="トークン一覧のページ"></nav>
 
 <!-- Issue Modal -->
 <div class="modal-overlay" id="issueModal">
@@ -649,6 +673,8 @@ const STATUS_META = Object.freeze({
 let tokens = [];
 let currentFilter = 'all';
 let currentSearch = '';
+const TOKENS_PER_PAGE = 50;
+let currentPage = 1;
 let pendingType = 'free';
 let departments = [];
 const ADMIN_DEPARTMENTS_API = '/api/admin-departments';
@@ -786,7 +812,18 @@ function renderTable() {
     return true;
   });
 
-  tbody.innerHTML = filtered.map(t => {
+  filtered.sort((a, b) => {
+    const dateDiff = Date.parse(b.issued_at || 0) - Date.parse(a.issued_at || 0);
+    if (Number.isFinite(dateDiff) && dateDiff !== 0) return dateDiff;
+    return Number(String(b.id || '').slice(1)) - Number(String(a.id || '').slice(1));
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / TOKENS_PER_PAGE));
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const start = (currentPage - 1) * TOKENS_PER_PAGE;
+  const pageTokens = filtered.slice(start, start + TOKENS_PER_PAGE);
+
+  tbody.innerHTML = pageTokens.map(t => {
     const url = t.type === 'free'
       ? `${BASE_URL_FREE}?token=${t.id}`
       : `${BASE_URL_PAID}?token=${t.id}`;
@@ -819,6 +856,29 @@ function renderTable() {
         </td>
       </tr>`;
   }).join('');
+  renderPagination(filtered.length, totalPages);
+}
+
+function renderPagination(totalItems, totalPages) {
+  const nav = document.getElementById('tokenPagination');
+  if (!nav) return;
+  if (totalItems === 0) {
+    nav.innerHTML = '<div class="page-summary">該当するトークンはありません</div>';
+    return;
+  }
+  const buttons = Array.from({ length: totalPages }, (_, index) => {
+    const page = index + 1;
+    return `<button type="button" class="page-btn${page === currentPage ? ' active' : ''}" ${page === currentPage ? 'aria-current="page"' : ''} onclick="goToPage(${page})">${page}</button>`;
+  }).join('');
+  const first = (currentPage - 1) * TOKENS_PER_PAGE + 1;
+  const last = Math.min(currentPage * TOKENS_PER_PAGE, totalItems);
+  nav.innerHTML = `${buttons}<div class="page-summary">${first}〜${last}件 / 全${totalItems}件　※1ページ目が最新、数字が大きいほど古い一覧です</div>`;
+}
+
+function goToPage(page) {
+  currentPage = page;
+  renderTable();
+  document.querySelector('.table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ============================================================
@@ -886,6 +946,7 @@ async function issueToken() {
     });
 
     tokens.push(data.token);
+    currentPage = 1;
     renderTable();
     updateStats();
     closeModal();
@@ -979,6 +1040,7 @@ function normalizeStatus(status) {
 
 function setFilter(f, el) {
   currentFilter = f;
+  currentPage = 1;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   renderTable();
@@ -986,6 +1048,7 @@ function setFilter(f, el) {
 
 function filterTokens(q) {
   currentSearch = q;
+  currentPage = 1;
   renderTable();
 }
 
