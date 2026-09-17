@@ -2375,7 +2375,7 @@ async function finalizeDiagnosis(diag){
       _lastAiText=aiText;
       try{localStorage.setItem('sv_ai1',aiText);}catch(e){}
     }
-  }catch(e){console.error(e);}
+  }catch(e){console.error('[Spec-V] callAI failed:',e?.message||String(e));}
   // AI分析が成功した結果だけを正式完了として通知・消費する。
   // AI失敗時にトークンだけ先に消費しない。
   clearInterval(iv);
@@ -3003,7 +3003,10 @@ ${PB[purpose]||PB.self}${styleContext}`;
     method:'POST',headers:specvApiHeaders(),
     body:JSON.stringify({model:'claude-sonnet-5',max_tokens:1800,messages:[{role:'user',content:prompt}]}),
   });
-  if(!res.ok)throw new Error('API '+res.status);
+  if(!res.ok){
+    const detail=await res.text();
+    throw new Error(`API ${res.status}: ${detail.slice(0,300)}`);
+  }
   const data=await res.json();
   const output=data.content?.[0]?.text||'';
   const requiredTags={
@@ -3012,7 +3015,8 @@ ${PB[purpose]||PB.self}${styleContext}`;
     self:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],
   }[purpose]||['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'];
   const missing=requiredTags.filter(tag=>!output.includes(`【${tag}】`));
-  if(!output||missing.length)throw new Error(`AI出力形式エラー: ${missing.join(',')||'empty'}`);
+  if(!output.trim())throw new Error('AI出力形式エラー: empty');
+  if(missing.length)console.warn('[Spec-V] AIタグ不足:',missing.join(','));
   return output;
 }
 
