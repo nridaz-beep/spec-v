@@ -4,7 +4,7 @@
 
 const Stripe = require('stripe');
 
-const PRICE_ID = 'price_1TfcMhLW5Fj0QPF9qQ5NJEcu';
+const DIAGNOSIS_PRICE_JPY = 2000;
 const SUCCESS_URL = 'https://spec-v.vercel.app/checkout-result.html';
 const CANCEL_URL = 'https://spec-v.vercel.app/checkout-result.html?checkout=cancel';
 
@@ -33,7 +33,13 @@ module.exports = async function handler(req, res) {
       mode: 'payment',
       line_items: [
         {
-          price: PRICE_ID,
+          price_data: {
+            currency: 'jpy',
+            unit_amount: DIAGNOSIS_PRICE_JPY,
+            product_data: {
+              name: 'Spec-V診断'
+            }
+          },
           quantity: 1
         }
       ],
