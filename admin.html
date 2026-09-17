@@ -813,8 +813,9 @@ function renderTable() {
   });
 
   filtered.sort((a, b) => {
-    const dateDiff = Date.parse(b.issued_at || 0) - Date.parse(a.issued_at || 0);
-    if (Number.isFinite(dateDiff) && dateDiff !== 0) return dateDiff;
+    const prefixA = String(a.id || '').charAt(0).toUpperCase();
+    const prefixB = String(b.id || '').charAt(0).toUpperCase();
+    if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
     return Number(String(b.id || '').slice(1)) - Number(String(a.id || '').slice(1));
   });
 
