@@ -9,15 +9,15 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 :root {
-  --bg: #0a0a0f;
-  --surface: #111118;
-  --surface2: #18181f;
-  --border: #252530;
-  --text: #e8e4f0;
-  --text-muted: #706880;
-  --text-sub: #a098b8;
-  --accent: #c8a96e;
-  --accent2: #e0c888;
+  --bg: #091321;
+  --surface: #111f32;
+  --surface2: #17283d;
+  --border: #2b3c51;
+  --text: #edf2f8;
+  --text-muted: #a0b0c4;
+  --text-sub: #c0ccda;
+  --accent: #ddbd83;
+  --accent2: #f0d9aa;
   --accent-glow: rgba(200,169,110,0.15);
   --red: #c04848;
   --green: #50a070;
@@ -519,20 +519,20 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
 <body>
 
 <!-- ===== TOKEN GATE ===== -->
-<div id="token-gate" style="display:none;position:fixed;inset:0;background:#0a0a0f;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;font-family:'Noto Serif JP',serif;">
-  <div style="color:#c8a96e;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:0.35em;">SPEC-V</div>
-  <div id="tg-msg" style="color:#e8e4f0;font-size:15px;text-align:center;line-height:1.8;max-width:360px;"></div>
-  <div id="tg-spinner" style="width:32px;height:32px;border:2px solid #252530;border-top-color:#c8a96e;border-radius:50%;animation:tg-spin 0.8s linear infinite;display:none;"></div>
+<div id="token-gate" style="display:none;position:fixed;inset:0;background:#091321;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;font-family:'Noto Serif JP',serif;">
+  <div style="color:#ddbd83;font-family:'Syne',sans-serif;font-size:13px;letter-spacing:0.35em;">SPEC-V</div>
+  <div id="tg-msg" style="color:#edf2f8;font-size:15px;text-align:center;line-height:1.8;max-width:360px;"></div>
+  <div id="tg-spinner" style="width:32px;height:32px;border:2px solid #2b3c51;border-top-color:#ddbd83;border-radius:50%;animation:tg-spin 0.8s linear infinite;display:none;"></div>
   <div id="tg-token-form" style="display:none;width:min(420px,calc(100vw - 48px));border-top:1px solid rgba(255,255,255,.12);border-bottom:1px solid rgba(255,255,255,.12);padding:22px 0;">
-    <div style="color:#c8a96e;font-size:13px;margin-bottom:12px;text-align:center;">トークンをお持ちの方</div>
+    <div style="color:#ddbd83;font-size:13px;margin-bottom:12px;text-align:center;">トークンをお持ちの方</div>
     <div style="display:flex;gap:10px;align-items:stretch;">
-      <input id="tg-token-input" type="text" inputmode="text" autocomplete="one-time-code" placeholder="トークンを入力" style="flex:1;min-width:0;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:#e8e4f0;border-radius:4px;padding:12px 13px;font-family:'Syne','Noto Serif JP',sans-serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;">
-      <button id="tg-token-submit" type="button" onclick="submitTokenGate()" style="border:1px solid rgba(200,169,110,.75);background:transparent;color:#c8a96e;border-radius:4px;padding:0 16px;font-family:'Noto Serif JP',serif;font-size:13px;white-space:nowrap;cursor:pointer;">診断を開始する</button>
+      <input id="tg-token-input" type="text" inputmode="text" autocomplete="one-time-code" placeholder="トークンを入力" style="flex:1;min-width:0;border:1px solid #40556e;background:#111f32;color:#edf2f8;border-radius:4px;padding:12px 13px;font-family:'Syne','Noto Serif JP',sans-serif;font-size:14px;letter-spacing:.08em;text-transform:uppercase;">
+      <button id="tg-token-submit" type="button" onclick="submitTokenGate()" style="border:1px solid rgba(221,189,131,.75);background:transparent;color:#ddbd83;border-radius:4px;padding:0 16px;font-family:'Noto Serif JP',serif;font-size:13px;white-space:nowrap;cursor:pointer;">診断を開始する</button>
     </div>
   </div>
   <div id="tg-checkout-wrap" style="display:none;text-align:center;">
-    <div style="color:#9b96a8;font-size:13px;margin-bottom:12px;">まだお持ちでない方</div>
-    <button id="tg-checkout" type="button" onclick="startCheckout()" style="border:1px solid rgba(200,169,110,.75);background:#c8a96e;color:#0a0a0f;border-radius:4px;padding:13px 22px;font-family:'Noto Serif JP',serif;font-size:14px;letter-spacing:.04em;cursor:pointer;">Spec-V診断を購入（¥980）</button>
+    <div style="color:#a0b0c4;font-size:13px;margin-bottom:12px;">まだお持ちでない方</div>
+    <button id="tg-checkout" type="button" onclick="startCheckout()" style="border:1px solid rgba(221,189,131,.75);background:#ddbd83;color:#091321;border-radius:4px;padding:13px 22px;font-family:'Noto Serif JP',serif;font-size:14px;letter-spacing:.04em;cursor:pointer;">Spec-V診断を購入（¥980）</button>
   </div>
 </div>
 <style>
