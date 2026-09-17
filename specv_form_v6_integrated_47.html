@@ -532,7 +532,7 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   </div>
   <div id="tg-checkout-wrap" style="display:none;text-align:center;">
     <div style="color:#a0b0c4;font-size:13px;margin-bottom:12px;">まだお持ちでない方</div>
-    <button id="tg-checkout" type="button" onclick="startCheckout()" style="border:1px solid rgba(221,189,131,.75);background:#ddbd83;color:#091321;border-radius:4px;padding:13px 22px;font-family:'Noto Serif JP',serif;font-size:14px;letter-spacing:.04em;cursor:pointer;">Spec-V診断を購入（¥980）</button>
+    <button id="tg-checkout" type="button" onclick="startCheckout()" style="border:1px solid rgba(221,189,131,.75);background:#ddbd83;color:#091321;border-radius:4px;padding:13px 22px;font-family:'Noto Serif JP',serif;font-size:14px;letter-spacing:.04em;cursor:pointer;">Spec-V診断を購入（¥2,000）</button>
   </div>
 </div>
 <style>
@@ -583,7 +583,7 @@ async function startCheckout() {
     console.error('[Checkout] セッション作成失敗', err);
     if(btn){
       btn.disabled = false;
-      btn.textContent = 'Spec-V診断を購入（¥980）';
+      btn.textContent = 'Spec-V診断を購入（¥2,000）';
     }
     alert('決済ページを開けませんでした。しばらくしてから再度お試しください。');
   }
