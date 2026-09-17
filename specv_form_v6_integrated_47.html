@@ -1494,7 +1494,7 @@ function openPrintPage(){
   const top3=srt.slice(0,3),bot3=[...compi].sort((a,b)=>a.score-b.score).slice(0,3);
 
   // AI取得（直接変数から）
-  const ALB={hire:{tags:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT'],lbls:['現在の状態から見える特徴','活かせる可能性','追加確認事項','面接質問','入社後の環境・支援']},grow:{tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL'],lbls:['現在地','成長の鍵','育成の注意点','最も力が出る環境','育成方針の総括']},self:{tags:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],lbls:['今の状態','本来の力','正直な指摘','次に意識すること','総合評価']}};
+  const ALB={hire:{tags:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT'],lbls:['現在の状態から見える特徴','活かせる可能性','追加確認事項','面接質問','入社後の環境・支援']},grow:{tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL'],lbls:['現在地','成長の鍵','育成の注意点','最も力が出る環境','育成方針の総括']},self:{tags:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],lbls:['今の状態','本来の力','自覚を促したい点','次に意識すること','統合所見']}};
   const conf=ALB[purpose]||ALB.self;
   const ai1Blocks=[];
   if(_lastAiText){
@@ -2276,7 +2276,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   const ALB={
     hire:{t:'AI Analysis — 面接・対話支援レポート',tags:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT'],lbls:['現在の状態から見える特徴','活かせる可能性','追加確認事項','面接質問','入社後の環境・支援']},
     grow:{t:'AI Analysis — 組織育成レポート',tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION'],lbls:['この人物の現在地','成長の鍵','育成の注意点','最も力が出る環境']},
-    self:{t:'AI Analysis — 自己理解レポート',tags:['SUMMARY','STRENGTH','HONEST','NEXT'],lbls:['あなたの今の状態','本来の力','正直な指摘','次に意識すること']},
+    self:{t:'AI Analysis — 自己理解レポート',tags:['SUMMARY','STRENGTH','HONEST','NEXT'],lbls:['あなたの今の状態','本来の力','自覚を促したい点','次に意識すること']},
   };
   const conf=ALB[purpose]||ALB.self;
   document.getElementById('aiSecTitle').textContent=conf.t;
@@ -2295,7 +2295,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
         `).join('')+
         (sec['OVERALL']?`
           <div class="ai-block" style="background:rgba(200,169,110,0.06);border:1px solid rgba(200,169,110,0.25);border-radius:8px;padding:22px 24px;margin-top:8px;">
-            <span class="ai-label" style="color:var(--accent2);">▶ 総合評価 — 現在地と方向性</span>
+            <span class="ai-label" style="color:var(--accent2);">▶ 統合所見 — 現在地と方向性</span>
             <div class="ai-text" style="font-size:16px;color:var(--text);font-weight:500;line-height:2.0;">${sec['OVERALL']}</div>
           </div>
         `:'');
@@ -2620,7 +2620,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
       ai1_txt1:purpose==='hire'?aiSec.CURRENT_STATE:aiSec.SUMMARY||'',
       ai1_tag2:purpose==='hire'?'活かせる可能性':purpose==='grow'?'成長の鍵':'本来の力',
       ai1_txt2:purpose==='hire'?aiSec.POTENTIAL:aiSec[purpose==='grow'?'GROWTH':'STRENGTH']||'',
-      ai1_tag3:purpose==='hire'?'追加確認事項':purpose==='grow'?'育成の注意点':'正直な指摘',
+      ai1_tag3:purpose==='hire'?'追加確認事項':purpose==='grow'?'育成の注意点':'自覚を促したい点',
       ai1_txt3:purpose==='hire'?aiSec.CHECK_POINTS:aiSec[purpose==='grow'?'CAUTION':'HONEST']||'',
       ai1_tag4:purpose==='hire'?'面接質問':purpose==='grow'?'最も力が出る環境':'次に意識すること',
       ai1_txt4:purpose==='hire'?aiSec.INTERVIEW_QUESTIONS:aiSec[purpose==='grow'?'ACTIVATION':'NEXT']||'',
@@ -2926,23 +2926,31 @@ async function callAI(scores,ti,compi){
 【ONBOARDING_SUPPORT】入社後を想定した場合に検討できる環境・支援を2〜3文で。採用を前提に断定しない。
 【OVERALL】診断だけで採否を決めず、面接・実績・本人の希望など複数の情報を組み合わせて対話するための注意点を1〜2文で。`,
     grow:`## 分析目的：組織育成
-この分析は「組織育成目的」で使用する。上司・育成担当者へのフィードバック。
-評価軸重み：愛★5・自己認知★5・魂★4・解放度★4・毒のなさ★4
-【SUMMARY】育成担当者視点で2〜3文。「今どういうフェーズにいる人か」を率直に。
-【GROWTH】成長のために何が鍵になるか。「何を与えれば伸びるか」を具体的に。2〜3文。
-【CAUTION】育成において注意すべき点。解放度が低い場合は蓋の可能性に言及。2〜3文。
-【ACTIVATION】最も力を発揮できる環境・役割・条件。「こういうポジションに置いたら化ける」を具体的に。2〜3文。
-【OVERALL】スコア全体を統合した総括。「今この人をどう育てるべきか」の方針を1〜2文で端的に。`,
-    self:`分析目的：自己理解
-この分析は「自己理解目的」で使用する。診断を受けた本人へのフィードバック。
-評価軸重み：自己認知★5・魂★4・愛★4・解放度★4・毒のなさ★3
-【SUMMARY】本人に語りかけるように2〜3文。「今あなたはこういう状態にいる」と。
-【STRENGTH】本人が気づいていない可能性がある強み。2〜3文。
-【HONEST】今の状態で気をつけるべきこと。率直に、でも前向きに。2〜3文。
-【NEXT】今のあなたが次に意識するといい1つのこと。具体的に。2〜3文。
-【OVERALL】スコア全体を統合した総括。「今の自分の現在地と、次に向かう方向」を1〜2文で端的に。`,
+この分析は上司・育成担当者が、本人の現在地を理解し対話と環境調整に使う。
+【SUMMARY】現在の状態と、その背景にある性向・モード・ストレスの関係を2〜3文で。固定的人物評価にしない。
+【GROWTH】強みと詰まりが同じ根から生まれる構造を示し、本人が試せる小さな一手を2〜3文で。
+【CAUTION】低い数値を能力不足と決めつけず、疲弊・役割不一致・環境による蓋の可能性を含めて2〜3文で。
+【ACTIVATION】本来の力が出やすい環境・関わり方・権限設計を2〜3文で。配置による選別や固定化をしない。
+【OVERALL】本人側の行動と環境側の介入を結び、今後の対話方針を1〜2文で端的に。`,
+    self:`## 分析目的：自己理解
+この分析は診断を受けた本人が、今の状態を理解して次の一歩を選ぶために使用する。
+【SUMMARY】本人に語りかける形で、性向・モード・ストレスと主要スコアの関係から現在地を2〜3文で。
+【STRENGTH】同じ根から生まれている強みと、その強みが発揮されやすい条件を2〜3文で。
+【HONEST】自覚を促したい点を、能力や人格の断定をせず、環境による蓋や疲弊の可能性も含めて2〜3文で。
+【NEXT】本人が試せる小さな行動と、周囲に相談できる環境調整を具体的に2〜3文で。
+【OVERALL】現在地と次に向かう方向を1〜2文で端的に。`,
   };
   const ct=compi.map(d=>`${d.label}:${d.score}`).join(' / ');
+  const kishPct=_lastKish?.pct||{};
+  const modePct=_lastMode?.pct||{};
+  const kishOrder=['突破性向','慎重性向','順応性向','跳躍性向'];
+  const modeOrder=['牽引モード','実務モード','支援モード','発想モード'];
+  const kishText=kishOrder.map(k=>`${k}:${Math.round(kishPct[k]||0)}%`).join(' / ');
+  const modeText=modeOrder.map(k=>`${k}:${Math.round(modePct[k]||0)}%`).join(' / ');
+  const primaryKish=kishOrder.slice().sort((a,b)=>(kishPct[b]||0)-(kishPct[a]||0)).slice(0,2).join(' × ');
+  const primaryMode=modeOrder.slice().sort((a,b)=>(modePct[b]||0)-(modePct[a]||0))[0];
+  const stressMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
+  const stressLabel=stressMap[primaryMode]||'';
 
   // σ補正：回答スタイル分析
   const sigma=calcPersonalSigma(answers);
@@ -2953,7 +2961,15 @@ async function callAI(scores,ti,compi){
   const prompt=`あなたはSpec-Vという人材診断ツールの分析AIです。
 「この人はどんな人か」ではなく「今どういう状態にあり、なぜそうなっているか」を読むツールです。
 
-絶対ルール：スコアの羅列をしない。因果と状態を語る。断定せず「可能性」「傾向」「読める」を使う。全体平均5.0超の場合、相対的に低い軸は「伸びしろ」として表現する。
+絶対ルール：
+・数値→高低差→要素同士の関係→背景仮説→現在の状態→示唆→行動・環境への介入、の順で読む。
+・低い数値を能力不足・欠点・固定的人格と解釈しない。疲弊、役割不一致、ストレス、環境による蓋で今は外へ出ていない可能性を必ず検討する。
+・強みと課題を別々に並べず、同じ根から強みと副作用が生まれる構造を示す。
+・断定せず「可能性」「傾向」「読み取れる」を使い、回答時点の現在地として表現する。
+・本人に求める行動だけでなく、周囲・役割・仕組みなど環境側の介入も示す。
+・モードの低さは能力不足ではなく、現在相対的に使われにくい動きとして扱う。支援モードと任せる力、発想モードと他者の発想支援を同一視しない。
+・高潔さは倫理性・正直さ・人間性の直接評価ではない。感情制御とも混同しない。
+・外部表現は「性向」で統一し、「気質」「性質」は使用しない。標準語で書く。
 
 出力形式の厳守：
 ・必ず【タグ名】から始まる形式で出力すること
@@ -2965,7 +2981,7 @@ async function callAI(scores,ti,compi){
 
 必須ルール：
 ・以下に指定されたすべての【タグ】を必ず出力すること。1つでも欠けると不完全な出力になる。
-・「${uProfile.industry}」という業種・職種・職位の文脈を必ず各コメントに反映すること。抽象的な表現だけでは不十分。
+・年齢・業界・職務・職位は補助情報として使う。入力にない業務場面、実績、感情、経歴を創作しない。業種名を各段落へ機械的に挿入しない。
 
 【分析目的】
 この分析は「${purLblAI[purpose]||'自己理解'}目的」で使用する。
@@ -2976,17 +2992,28 @@ async function callAI(scores,ti,compi){
 【スコア】
 推進力:${scores.suishin} 毒のなさ:${scores.doku} 解放度:${scores.kaihou} 自己認知:${scores.jiko} 魂:${scores.tamashii} 愛:${scores.ai}
 総合タイプ：${ti.q} / Lv${ti.lv}（${ti.lvN}）
-コンピテンシー詳細：${ct}
+性向：${primaryKish}（${kishText}）
+モード：${primaryMode}（${modeText}）
+ストレス反応：${stressLabel}
+16項目詳細：${ct}
 
 ${PB[purpose]||PB.self}${styleContext}`;
 
   const res=await fetch('/api/analyze',{
     method:'POST',headers:specvApiHeaders(),
-    body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1500,messages:[{role:'user',content:prompt}]}),
+    body:JSON.stringify({model:'claude-sonnet-5',max_tokens:1800,messages:[{role:'user',content:prompt}]}),
   });
   if(!res.ok)throw new Error('API '+res.status);
   const data=await res.json();
-  return data.content[0].text;
+  const output=data.content?.[0]?.text||'';
+  const requiredTags={
+    hire:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT','OVERALL'],
+    grow:['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL'],
+    self:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],
+  }[purpose]||['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'];
+  const missing=requiredTags.filter(tag=>!output.includes(`【${tag}】`));
+  if(!output||missing.length)throw new Error(`AI出力形式エラー: ${missing.join(',')||'empty'}`);
+  return output;
 }
 
 async function recoverPaidTokenForGate(){
