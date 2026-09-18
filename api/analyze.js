@@ -18,6 +18,17 @@ module.exports = async function handler(req, res) {
 
   try {
     const { model, max_tokens, messages } = req.body;
+    const promptText = Array.isArray(messages)
+      ? messages.map((message) => typeof message?.content === 'string' ? message.content : '').join('\n')
+      : '';
+    const standardTags = [
+      ['CURRENT_STATE', 'POTENTIAL', 'CHECK_POINTS', 'INTERVIEW_QUESTIONS', 'ONBOARDING_SUPPORT', 'OVERALL'],
+      ['SUMMARY', 'GROWTH', 'CAUTION', 'ACTIVATION', 'OVERALL'],
+      ['SUMMARY', 'STRENGTH', 'HONEST', 'NEXT', 'OVERALL'],
+    ];
+    const requiredTags = standardTags.find((tags) => tags.every((tag) => promptText.includes(`【${tag}】`));
+    const isStandardOutput = Boolean(requiredTags);
+    const effectiveMaxTokens = isStandardOutput ? 3000 : max_tokens;
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -26,7 +37,7 @@ module.exports = async function handler(req, res) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({ model, max_tokens, messages }),
+      body: JSON.stringify({ model, max_tokens: effectiveMaxTokens, messages }),
     });
 
     const data = await response.json();
@@ -64,8 +75,36 @@ module.exports = async function handler(req, res) {
       });
     }
 
-    // Keep the response shape expected by the existing clients while making
-    // the selected text block independent of Anthropic content-block order.
+    if (isStandardOutput) {
+      const stopReason = data?.stop_reason || null;
+      if (stopReason === 'max_tokens') {
+        console.error('[analyze] Standard output truncated', {
+          stop_reason: stopReason,
+          max_tokens: effectiveMaxTokens,
+        });
+        return res.status(502).json({
+          error: 'ai_provider_error',
+          code: 'AI_OUTPUT_TRUNCATED',
+          message: 'AI標準アウトプットが上限で途中終了しました。',
+        });
+      }
+
+      const missingTags = requiredTags.filter((tag) => !textBlock.text.includes(`【${tag}】`));
+      const endsLikeCompleteText = /[。．.!！？」』】）)]\s*$/.test(textBlock.text);
+      if (stopReason !== 'end_turn' || missingTags.length || !endsLikeCompleteText) {
+        console.error('[analyze] Standard output incomplete', {
+          stop_reason: stopReason,
+          missing_tags: missingTags,
+          ends_like_complete_text: endsLikeCompleteText,
+        });
+        return res.status(502).json({
+          error: 'ai_provider_error',
+          code: 'AI_OUTPUT_INCOMPLETE',
+          message: 'AI標準アウトプットが完全な形式で完了しませんでした。',
+        });
+      }
+    }
+
     return res.status(200).json({
       ...data,
       content: [{ type: 'text', text: textBlock.text }],
