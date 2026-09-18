@@ -32,11 +32,50 @@ module.exports = async function handler(req, res) {
     const data = await response.json();
 
     if (!response.ok) {
-      return res.status(response.status).json(data);
+      const providerType = data?.error?.type || 'unknown_error';
+      const providerMessage = data?.error?.message || 'Anthropic API request failed';
+      console.error('[analyze] Anthropic request failed', {
+        status: response.status,
+        type: providerType,
+        message: providerMessage,
+      });
+      return res.status(502).json({
+        error: 'ai_provider_error',
+        code: 'ANTHROPIC_REQUEST_FAILED',
+        message: 'AIプロバイダーへのリクエストに失敗しました。',
+      });
     }
 
-    return res.status(200).json(data);
+    const textBlock = Array.isArray(data?.content)
+      ? data.content.find((block) => block?.type === 'text' && typeof block.text === 'string' && block.text.trim())
+      : null;
+
+    if (!textBlock) {
+      console.error('[analyze] Anthropic response contained no text block', {
+        stop_reason: data?.stop_reason || null,
+        content_types: Array.isArray(data?.content)
+          ? data.content.map((block) => block?.type || 'unknown')
+          : [],
+      });
+      return res.status(502).json({
+        error: 'ai_provider_error',
+        code: 'ANTHROPIC_EMPTY_TEXT',
+        message: 'AIプロバイダーから本文を取得できませんでした。',
+      });
+    }
+
+    // Keep the response shape expected by the existing clients while making
+    // the selected text block independent of Anthropic content-block order.
+    return res.status(200).json({
+      ...data,
+      content: [{ type: 'text', text: textBlock.text }],
+    });
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    console.error('[analyze] Unexpected server error', error);
+    return res.status(500).json({
+      error: 'ai_provider_error',
+      code: 'ANALYZE_SERVER_ERROR',
+      message: 'AI分析処理で予期しないエラーが発生しました。',
+    });
   }
-}
+};
