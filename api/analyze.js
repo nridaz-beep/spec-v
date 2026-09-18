@@ -26,7 +26,7 @@ module.exports = async function handler(req, res) {
       ['SUMMARY', 'GROWTH', 'CAUTION', 'ACTIVATION', 'OVERALL'],
       ['SUMMARY', 'STRENGTH', 'HONEST', 'NEXT', 'OVERALL'],
     ];
-    const requiredTags = standardTags.find((tags) => tags.every((tag) => promptText.includes(`【${tag}】`));
+    const requiredTags = standardTags.find((tags) => tags.every((tag) => promptText.includes(`【${tag}】`)));
     const isStandardOutput = Boolean(requiredTags);
     const effectiveMaxTokens = isStandardOutput ? 3000 : max_tokens;
 
