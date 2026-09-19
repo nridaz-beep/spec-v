@@ -38,6 +38,22 @@ module.exports = async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      const batch = Array.isArray(req.body && req.body.batch) ? req.body.batch : null;
+      if (batch) {
+        if (batch.length < 1 || batch.length > 20) {
+          return res.status(400).json({ error: 'batch_size_must_be_1_to_20' });
+        }
+        const tokens = batch.map(normalizeInputToken);
+        if (tokens.some(token => !token.id || !token.type)) {
+          return res.status(400).json({ error: 'invalid_token' });
+        }
+        const { data, error } = await supabase
+          .from('tokens')
+          .insert(tokens)
+          .select('id, type, status, issued_at, note, org_id, department_id, announced_at, deadline, announced_by');
+        if (error) throw error;
+        return res.status(200).json({ tokens: (data || []).map(normalizeOutputToken) });
+      }
       const token = normalizeInputToken(req.body || {});
       if (!token.id || !token.type) {
         return res.status(400).json({ error: 'invalid_token' });
