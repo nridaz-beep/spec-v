@@ -515,6 +515,33 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   }
 }
 </style>
+<style id="specv-pdf-layout-fix">
+/* PDFは結果画面の再印刷ではなく、専用の3ページDOMだけを印刷する。 */
+@media print {
+  @page { size: A4 portrait; margin: 10mm 12mm; }
+  body > *:not(#pdf-view) { display: none !important; }
+  body > #pdf-view { display: block !important; width: 100%; }
+  #pdf-view .pdf-page {
+    display: block !important;
+    width: 100%;
+    min-height: 277mm;
+    overflow: visible;
+    box-sizing: border-box;
+    page-break-after: always;
+    break-after: page;
+    position: relative;
+  }
+  #pdf-view .pdf-page:last-child { page-break-after: auto; break-after: auto; }
+  #pdf-view .pdf-head { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e0d0a0; padding:5px 0 7px; margin-bottom:10px; }
+  #pdf-view .pdf-logo { font-family:Arial,sans-serif; font-size:8px; letter-spacing:.22em; font-weight:700; }
+  #pdf-view .pdf-meta { display:flex; gap:9px; align-items:center; font-size:8px; color:#777; }
+  #pdf-view .pdf-pnum { border:1px solid; border-radius:10px; padding:2px 7px; font-size:7px; }
+  #pdf-view .pdf-foot { position:static; display:flex; justify-content:space-between; border-top:1px solid #e7e0d3; padding-top:5px; margin-top:10px; color:#999; font-size:7px; }
+  #pdf-view .pdf-gold-bar { height:3px; margin-bottom:5px; }
+  #pdf-view .pdf-sec { margin:8px 0 6px; padding-bottom:4px; border-bottom:1px solid; font-family:Arial,sans-serif; font-size:8px; letter-spacing:.08em; font-weight:700; }
+  #pdf-view p { margin: 0; }
+}
+</style>
 </head>
 <body>
 
@@ -872,7 +899,7 @@ async function startCheckout() {
     <div class="section-block">
       <span class="sec-title">Six Axes — スコア詳細</span>
       <div class="axis-list" id="axisList"></div>
-      <p style="font-size:11px;color:var(--text-muted);margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">5.0以上：高水準　6.0以上：顕著な強み　3.0以下：要注目</p>
+      <p style="font-size:11px;color:var(--text-muted);margin-top:16px;padding-top:12px;border-top:1px solid var(--border);">数値は能力順位ではなく、現在どの程度表に現れているかを示します。</p>
     </div>
     <div class="section-block">
       <span class="sec-title">Radar Chart — 6軸俯瞰</span>
@@ -970,7 +997,7 @@ async function startCheckout() {
         cursor:pointer;">
         📄 診断結果をPDFで保存する
       </button>
-      <p style="font-size:11px;color:var(--text-muted);margin-top:12px;">※ <strong style="color:var(--accent);">Chrome</strong>で開くと綺麗にA4・3枚で出力されます。Safariは印刷設定で「用紙サイズ：A4」を選択してください。</p>
+  <p style="font-size:11px;color:var(--text-muted);margin-top:12px;">※ <strong style="color:var(--accent);">Chrome</strong>でA4に保存できます。印刷画面で「背景のグラフィック」を有効にしてください。</p>
     </div>
   </div>
 
@@ -1487,10 +1514,16 @@ function openPrintPage(){
   const MPD={'牽引モード':'場の中心に立ち、感情を出しながら周囲を引っ張る。','実務モード':'データと事実に基づき、着実に遂行する。','支援モード':'人のために動くことにエネルギーが湧く。','発想モード':'アイデアと創造性で場を動かす。'};
   const MSD={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
   const topKN=_lastKish?Object.entries(_lastKish.pct).sort((a,b)=>b[1]-a[1])[0][0]:'—';
-  const topMN=_lastMode?Object.entries(_lastMode.pct).sort((a,b)=>b[1]-a[1])[0][0]:'—';
+  const topMEntries=_lastMode?Object.entries(_lastMode.pct).sort((a,b)=>b[1]-a[1]):[];
+  const topMNamesPdf=_lastMode?topLabels(_lastMode.pct):[];
+  const topMN=topMEntries[0]?.[0]||'—';
   const pdfTempRows=_lastKish?['突破性向','跳躍性向','順応性向','慎重性向'].map((k,i)=>miniPctRow(k.replace('性向',''),Math.round(_lastKish.pct[k]||0),['#c07040','#9060d0','#5080c0','#606060'][i])).join(''):'';
   const pdfModeRows=_lastMode?['発想モード','実務モード','牽引モード','支援モード'].map((k,i)=>miniPctRow(k.replace('モード',''),Math.round(_lastMode.pct[k]||0),['#9060d0','#3060a0','#5090d0','#3a8a5a'][i])).join(''):'';
   const srt=[...compi].sort((a,b)=>b.score-a.score);
+  const topScore=srt[0]?.score||0;
+  const bottomScore=srt[srt.length-1]?.score||0;
+  const topCompPdf=compi.filter(d=>d.score===topScore);
+  const bottomCompPdf=compi.filter(d=>d.score===bottomScore);
   const top3=srt.slice(0,3),bot3=[...compi].sort((a,b)=>a.score-b.score).slice(0,3);
 
   // AI取得（直接変数から）
@@ -1553,12 +1586,12 @@ function openPrintPage(){
       <div style="border:1px solid #e0d0a0;border-radius:3px;overflow:hidden;">
         <div style="background:#f5f0e4;padding:6px 10px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.35em;color:${tcol};text-transform:uppercase;border-bottom:1px solid #e0d0a0;">スタイル — 動き方</div>
         <div style="padding:8px 10px;"><table class="pdf-tbl">${_lastMode?Object.entries(_lastMode.pct).map(([k,p])=>kmRow(k,p,'#5090d0')).join(''):''}</table></div>
-        <div style="font-size:9.5px;color:#555;line-height:1.7;padding:6px 10px;border-top:1px solid #f0ece2;background:#fdfcf8;">${MPD[topMN]||''}</div>
+        <div style="font-size:9.5px;color:#555;line-height:1.7;padding:6px 10px;border-top:1px solid #f0ece2;background:#fdfcf8;">${topMNamesPdf.join(' × ')||'—'}${topMNamesPdf.length>1?'（同率首位）':''}：${topMNamesPdf.map(k=>MPD[k]).filter(Boolean).join(' ')}</div>
       </div>
     </div>
     <div style="display:flex;gap:8px;background:#fff8f0;border:1px solid #f0d8b0;border-left:3px solid #c07040;border-radius:0 3px 3px 0;padding:8px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">⚡</span>
-      <div><div style="font-size:7px;letter-spacing:.25em;color:#c07040;text-transform:uppercase;margin-bottom:2px;">Stress Pattern</div><div style="font-size:11px;color:#704020;line-height:1.6;">${MSD[topMN]||'—'} — プレッシャー下ではこの傾向が出やすい。自分の崩れパターンを知ることが第一歩。</div></div>
+      <div><div style="font-size:7px;letter-spacing:.25em;color:#c07040;text-transform:uppercase;margin-bottom:2px;">Stress Pattern</div><div style="font-size:11px;color:#704020;line-height:1.6;">${(()=>{const ss={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};questions.forEach((q,i)=>{if(!q.sub||!q.sub.includes('消極'))return;let v=answers[i];if(q.reverse)v=8-v;if(q.sub==='牽引モード消極')ss['牽引モード']=v;else if(q.sub==='実務モード消極')ss['実務モード']=v;else if(q.sub==='支援モード消極')ss['支援モード']=v;else if(q.sub==='発想モード消極')ss['発想モード']=v;});const stressMode=Object.entries(ss).sort((a,b)=>b[1]-a[1])[0]?.[0];return`平常時の主モードとは別に、消極面スコアから判定：${MSD[stressMode]||'—'}。`;})()}プレッシャー下で出やすい反応として扱います。</div></div>
     </div>
     ${sec('Overall — 総評')}
     <div style="background:#1a1714;border-radius:3px;padding:12px 16px;display:flex;gap:12px;align-items:flex-start;">
@@ -1571,7 +1604,7 @@ function openPrintPage(){
   const p2html=`
     <div class="pdf-gold-bar" style="background:linear-gradient(90deg,${tcol},#c8a96e,#e8c878,${tcol});"></div>
     ${pgHead(2)}
-    ${sec('Competency — 16項目スコア')}
+    ${sec('16項目スコア — 行動特性の現在地')}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;">
       <div style="border:1px solid #e0d0a0;border-radius:3px;overflow:hidden;">
         <div style="background:#fdf8ee;padding:6px 10px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#b8943a;text-transform:uppercase;border-bottom:1px solid #e0d0a0;">🟡 魂</div>
@@ -1589,11 +1622,11 @@ function openPrintPage(){
     ${sec('Peak &amp; Valley — 強み &amp; 伸びしろ')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
       <div style="border-radius:3px;overflow:hidden;border:1px solid #c0e8cc;">
-        <div style="background:#f0faf4;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#3a8a5a;text-transform:uppercase;border-bottom:1px solid #c0e8cc;">▲ 強み TOP 3</div>
+        <div style="background:#f0faf4;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#3a8a5a;text-transform:uppercase;border-bottom:1px solid #c0e8cc;">▲ 代表的な上位項目</div>
         ${top3.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid #f0faf4;"><span style="font-size:11px;color:#444;">${d.label}</span><strong style="font-size:14px;color:#3a8a5a;">${d.score}</strong></div>`).join('')}
       </div>
       <div style="border-radius:3px;overflow:hidden;border:1px solid #e0d0a0;">
-        <div style="background:#fdf8ee;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#b8943a;text-transform:uppercase;border-bottom:1px solid #e0d0a0;">▼ 伸びしろ TOP 3</div>
+        <div style="background:#fdf8ee;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#b8943a;text-transform:uppercase;border-bottom:1px solid #e0d0a0;">▼ 相対的な谷（代表項目）</div>
         ${bot3.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid #fdf8ee;"><span style="font-size:11px;color:#444;">${d.label}</span><strong style="font-size:14px;color:${d.score<=3.5?'#b03838':'#b8943a'};">${d.score}</strong></div>`).join('')}
       </div>
     </div>
@@ -1601,11 +1634,11 @@ function openPrintPage(){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
       <div style="background:#f0faf4;border-left:4px solid #3a8a5a;border-radius:0 4px 4px 0;padding:12px 14px;">
         <div style="font-size:7px;letter-spacing:.25em;color:#3a8a5a;text-transform:uppercase;margin-bottom:7px;">▲ 山（強みの読み解き）</div>
-        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const t=top3[0];return `${t.label}（${t.score}）の高さは、${t.group==='tamashii'?'使命感・ビジョンを描き周囲を動かす力':t.group==='ai'?'人への貢献と信頼構築の力':t.group==='anzen'?'組織の安全・誠実さへの貢献':'高い推進力'}として現れている。この強みが最も活きる場面への配置が、本人と組織双方の成長につながる。`;})()}</p>
+        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const t=topCompPdf[0]||top3[0];return `${topCompPdf.map(d=>d.label).join('・')}（${t?.score||'—'}）は現在の最高群です。${t?.group==='tamashii'?'使命感・ビジョンを描き周囲を動かす力':t?.group==='ai'?'人への貢献と信頼構築の力':t?.group==='anzen'?'組織の安全・誠実さへの貢献':'高い推進力'}として表れている可能性があります。`;})()}</p>
       </div>
       <div style="background:#fdf8ee;border-left:4px solid #c8a96e;border-radius:0 4px 4px 0;padding:12px 14px;">
         <div style="font-size:7px;letter-spacing:.25em;color:#c8a96e;text-transform:uppercase;margin-bottom:7px;">▼ 谷（伸びしろの読み解き）</div>
-        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const b=bot3[0];return `${b.label}（${b.score}）は環境・経験・意識の影響を受けやすい領域。${b.score<=3.5?'優先的に取り組むべき課題。':'伸びしろとして意識的に鍛える機会を設けることが有効。'}1on1や振り返りの習慣化が効果的なアプローチになる。`;})()}</p>
+        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const b=bottomCompPdf[0]||bot3[0];return `${bottomCompPdf.map(d=>d.label).join('・')}（${b?.score||'—'}）は全体の中で相対的に低く出ている領域です。5点前後であれば弱点や人格評価ではなく、全体との比較で見える現在の谷として扱います。`;})()}</p>
       </div>
     </div>
     <div style="background:#1a1714;border-radius:4px;padding:14px 18px;display:flex;gap:14px;align-items:flex-start;">
@@ -1666,6 +1699,14 @@ function sh(id){
 function shuf(a){const r=[...a];for(let i=r.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[r[i],r[j]]=[r[j],r[i]];}return r;}
 function avg(a){return a.length?a.reduce((s,v)=>s+v,0)/a.length:4;}
 function r1(n){return Math.round(n*10)/10;}
+// 同率首位は先頭1件に丸めず、同率の項目をすべて扱う。
+function topEntries(obj){
+  const entries=Object.entries(obj||{});
+  if(!entries.length)return[];
+  const max=Math.max(...entries.map(([,v])=>Number(v)||0));
+  return entries.filter(([,v])=>(Number(v)||0)===max);
+}
+function topLabels(obj){return topEntries(obj).map(([k])=>k);}
 
 // =============================
 // スタート
@@ -1968,6 +2009,7 @@ function getTypeInfo(s){
   else if(!tH&&aH){q='潤い型';sub='人を支える力がある。自分自身の方向性とビジョンを育てることで化ける。';bc='rgba(80,160,112,0.4)';gc='rgba(80,160,112,0.05)';}
   else{q='静水型';sub='内に静かにエネルギーを蓄えている状態。流れ出す経路を作ることで動き出す。';bc='rgba(42,90,122,0.4)';gc='rgba(42,90,122,0.05)';}
   const{lv}=calcLv(s);
+  if(q==='黎明型'&&lv>=9)sub='環境との接続が整い、魂と愛が実際の行動・成果として大きく開いている状態。周囲との関係の中で、持っている力が自然に広がりやすい。';
   return{q,sub,bc,gc,lv,lvN:LV_NAMES[lv].n,lvS:LV_NAMES[lv].s};
 }
 
@@ -2091,6 +2133,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   // バッジ
   const topK=Object.entries(kish.pct).sort((a,b)=>b[1]-a[1]);
   const topM=Object.entries(mode.pct).sort((a,b)=>b[1]-a[1]);
+  const topMNames=topLabels(mode.pct);
   const kBadge=topK[0][0]+(topK[1]&&topK[1][1]>=topK[0][1]-12?'×'+topK[1][0]:'');
   const strMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
 
@@ -2108,7 +2151,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
 
   document.getElementById('badgeRow').innerHTML=`
     <span class="badge badge-kishitsu"><span class="badge-dot"></span>${kBadge}</span>
-    <span class="badge badge-mode"><span class="badge-dot"></span>${topM[0][0]} 主</span>
+    <span class="badge badge-mode"><span class="badge-dot"></span>${topMNames.join('×')||'—'} 主${topMNames.length>1?'（同率）':''}</span>
     <span class="badge badge-stress"><span class="badge-dot"></span>ストレス時：${strMap[topStress]||'—'}</span>
   `;
 
@@ -2183,7 +2226,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   const MO=['牽引モード','実務モード','支援モード','発想モード'];
   const topMN=topM[0][0];
   document.getElementById('modeGrid').innerHTML=MO.map(m=>{
-    const p=mode.pct[m]||0;const isT=m===topMN;
+    const p=mode.pct[m]||0;const isT=topMNames.includes(m);
     return`<div class="mode-card${isT?' top':''}">
       <div class="mode-name">${m}${isT?' 👑':''}</div>
       <div class="mode-bar-bg"><div class="mode-bar-fill" style="width:${p}%"></div></div>
@@ -2192,8 +2235,10 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   }).join('');
   const MPD={'牽引モード':'明るく開放的に場の中心に立ち、感情を出しながら周囲を引っ張る。','実務モード':'データと事実に基づき、着実に遂行する。論理的な判断が得意。','支援モード':'人のために動くことにエネルギーが湧く。縁の下の力持ち。','発想モード':'アイデアと創造性で場を動かす。新しい視点を持ち込む。'};
   const MSD={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-  document.getElementById('modeCmtPos').innerHTML=`<div style="background:rgba(80,128,192,0.06);border:1px solid rgba(80,128,192,0.2);border-radius:8px;padding:16px 18px;"><div style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:#7aaae0;text-transform:uppercase;margin-bottom:8px;">平常時 — ${topMN}</div><p style="font-size:13px;color:var(--text-sub);line-height:1.9;">${MPD[topMN]||''}</p></div>`;
-  document.getElementById('modeCmtStr').innerHTML=`<div style="background:rgba(192,120,48,0.06);border:1px solid rgba(192,120,48,0.2);border-radius:8px;padding:16px 18px;"><div style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:var(--warn);text-transform:uppercase;margin-bottom:8px;">ストレス時 — ${MSD[topStress]||'—'}</div><p style="font-size:13px;color:var(--text-sub);line-height:1.9;">プレッシャー下では${MSD[topStress]||'—'}の傾向が出やすい。自分の崩れパターンを知ることが、組織安全性の第一歩。</p></div>`;
+  const modeLabel=topMNames.join(' × ')||'—';
+  const modeDescription=topMNames.map(m=>MPD[m]).filter(Boolean).join(' ');
+  document.getElementById('modeCmtPos').innerHTML=`<div style="background:rgba(80,128,192,0.06);border:1px solid rgba(80,128,192,0.2);border-radius:8px;padding:16px 18px;"><div style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:#7aaae0;text-transform:uppercase;margin-bottom:8px;">平常時 — ${modeLabel}${topMNames.length>1?'（同率首位）':''}</div><p style="font-size:13px;color:var(--text-sub);line-height:1.9;">${modeDescription}</p></div>`;
+  document.getElementById('modeCmtStr').innerHTML=`<div style="background:rgba(192,120,48,0.06);border:1px solid rgba(192,120,48,0.2);border-radius:8px;padding:16px 18px;"><div style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:var(--warn);text-transform:uppercase;margin-bottom:8px;">ストレス時 — ${MSD[topStress]||'—'}</div><p style="font-size:13px;color:var(--text-sub);line-height:1.9;">ストレス反応は平常時の主モードとは別に、消極面の回答スコアから判定しています。プレッシャー下では${MSD[topStress]||'—'}の傾向が出やすい可能性があります。</p></div>`;
 
   // コンピ波形
   if(cChart)cChart.destroy();
@@ -2260,16 +2305,20 @@ function showResult(scores,ti,compi,kish,mode,aiText){
 
   // 強み・伸びしろ
   const srt=[...compi].sort((a,b)=>b.score-a.score);
+  const maxComp=Math.max(...compi.map(d=>d.score));
+  const minComp=Math.min(...compi.map(d=>d.score));
+  const topComp=compi.filter(d=>d.score===maxComp);
+  const botComp=compi.filter(d=>d.score===minComp);
   const top2=srt.slice(0,2),bot2=srt.slice(-2).reverse();
   document.getElementById('scGrid').innerHTML=`
-    <div class="sc-card str"><span class="sc-lbl">▲ 強み Top 2</span>${top2.map(d=>`<div class="sc-item">${d.label}（${d.score}）</div>`).join('')}</div>
-    <div class="sc-card wk"><span class="sc-lbl">▼ 伸びしろ Top 2</span>${bot2.map(d=>`<div class="sc-item">${d.label}（${d.score}）</div>`).join('')}</div>
+    <div class="sc-card str"><span class="sc-lbl">▲ 強み（最高群）</span>${topComp.map(d=>`<div class="sc-item">${d.label}（${d.score}）</div>`).join('')}</div>
+    <div class="sc-card wk"><span class="sc-lbl">▼ 相対的な伸びしろ</span>${botComp.map(d=>`<div class="sc-item">${d.label}（${d.score}）</div>`).join('')}</div>
   `;
 
   // コンピアドバイス
   document.getElementById('compiAdv').innerHTML=`
-    <div class="adv-block"><div class="adv-type-lbl">凸点：${top2[0].label} ${top2[0].score}</div><p class="adv-txt">スコアが最も高い「${top2[0].label}」は、あなたの自然な強みです。この傾向が発揮されやすい役割・場面に積極的に身を置くことで、さらに力が引き出されます。</p></div>
-    <div class="adv-block warn"><div class="adv-type-lbl">凹点：${bot2[0].label} ${bot2[0].score}</div><p class="adv-txt">「${bot2[0].label}」は相対的に伸びしろがある領域です。${bot2[0].score<=3.5?'今の状態では意識的なアプローチが必要です。':'全体が高水準なため、ここをさらに育てると次のステージが開けます。'}</p></div>
+    <div class="adv-block"><div class="adv-type-lbl">凸点：最高群 ${maxComp}</div><p class="adv-txt">${topComp.map(d=>d.label).join('・')}が現在の最高群です。単独の優劣ではなく、複数の力が組み合わさって表れている状態として読みます。</p></div>
+    <div class="adv-block warn"><div class="adv-type-lbl">相対的な谷：${minComp}</div><p class="adv-txt">${botComp.map(d=>d.label).join('・')}は全体の中で相対的に低く出ている領域です。5点前後は弱点や人格評価ではなく、全体との比較で見える現在の谷として扱います。</p></div>
   `;
 
   // AI分析
@@ -2304,7 +2353,8 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       document.getElementById('aiBlocks').innerHTML=`<div class="ai-block"><div class="ai-text">${aiText}</div></div>`;
     }
   }else{
-    document.getElementById('aiBlocks').innerHTML='<div style="text-align:center;padding:32px;color:var(--text-muted);">AI分析を取得できませんでした。<br><span style="font-size:12px;">Vercel本番環境でAPIキーが設定されているか確認してください。</span></div>';
+    const publicCode=window._aiErrorCode||'AI_UNAVAILABLE';
+    document.getElementById('aiBlocks').innerHTML=`<div style="text-align:center;padding:32px;color:var(--text-muted);">AI分析を取得できませんでした。<br><span style="font-size:12px;">エラーコード：${publicCode}</span></div>`;
   }
 
   // Before/Afterブロック：再診断導線は表示しない
@@ -2368,6 +2418,7 @@ async function finalizeDiagnosis(diag){
     }
   }
   let aiText=null;
+  window._aiErrorCode='AI_UNAVAILABLE';
   try{
     aiText=await callAI(scores,ti,compi);
     if(aiText){
@@ -2375,7 +2426,10 @@ async function finalizeDiagnosis(diag){
       _lastAiText=aiText;
       try{localStorage.setItem('sv_ai1',aiText);}catch(e){}
     }
-  }catch(e){console.error('[Spec-V] callAI failed:',e?.message||String(e));}
+  }catch(e){
+    window._aiErrorCode=e?.publicCode||'AI_UNAVAILABLE';
+    console.error('[Spec-V] callAI failed:',e?.message||String(e));
+  }
   // AI分析が成功した結果だけを正式完了として通知・消費する。
   // AI失敗時にトークンだけ先に消費しない。
   clearInterval(iv);
@@ -2417,7 +2471,7 @@ async function runSecondAnalysis(){
   const prompt=`あなたはSpec-Vという人材診断ツールの分析AIです。
 「この人はどんな人か」ではなく「今どういう状態にあり、なぜそうなっているか」を読むツールです。
 
-絶対ルール：スコアの羅列をしない。因果と状態を語る。断定せず「可能性」「傾向」「読める」を使う。全体平均5.0超の場合、相対的に低い軸は「伸びしろ」として表現する。
+絶対ルール：スコアの羅列をしない。因果と状態を語る。断定せず「可能性」「傾向」「読める」を使う。全体平均5.0超の場合、相対的に低い軸は「伸びしろ」として表現する。入力とスコアにない経歴・具体的な職場場面・部下やチームの状態・本人の判断や感情を創作しない。提案は「試せる案」「確認したい仮説」として書く。複数項目が同点のときは単独首位と断定せず「最高群」「同率」と表現する。高潔さや任せる力が全体の相対的な谷にあっても、5点前後を弱点・人格評価として扱わない。
 
 絶対出力禁止ワード：気質、性質、コンピテンシー、F気質、A気質、G気質、W気質、パーソナルスキャン、PS、M-IT、MIT、クラスター、原点距離、マイナスV人財、V人財、マイナスV、V人材
 面接・採用目的では、採用・不採用、合格・不合格、採否、人物の優劣、固定的な人格・能力評価を出力しない。面接担当者が本人との対話を深めるための仮説・確認事項・質問・環境支援だけを生成する。
@@ -2541,6 +2595,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
   try{
     const topK=Object.entries(kish.pct).sort((a,b)=>b[1]-a[1]);
     const topM=Object.entries(mode.pct).sort((a,b)=>b[1]-a[1]);
+    const topMNames=topLabels(mode.pct);
     const strMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
     const stressScores={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};
     questions.forEach((q,i)=>{
@@ -2577,7 +2632,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
       type_name:ti.q||'',
       type_desc:ti.sub||'',
       temperament:kBadge||'',
-      mode:topM[0][0]||'',
+      mode:topMNames.join('×')||'',
       stress:strMap[topStress]||'',
       level:ti.lv||0,
       level_name:ti.lvN||'',
@@ -2969,6 +3024,9 @@ async function callAI(scores,ti,compi){
 ・本人に求める行動だけでなく、周囲・役割・仕組みなど環境側の介入も示す。
 ・モードの低さは能力不足ではなく、現在相対的に使われにくい動きとして扱う。支援モードと任せる力、発想モードと他者の発想支援を同一視しない。
 ・高潔さは倫理性・正直さ・人間性の直接評価ではない。感情制御とも混同しない。
+・入力とスコアに存在しない経歴、具体的な職場場面、部下・チームの状態、会議や制度、本人の判断や感情を事実のように創作しない。
+・具体策は「提案」「確認したい仮説」として書き、入力にない行動を本人が既にしている・していないと断定しない。
+・複数項目が同点のときは、単独の最高項目として扱わず「最高群」「同率」と表現する。
 ・外部表現は「性向」で統一し、「気質」「性質」は使用しない。標準語で書く。
 
 出力形式の厳守：
@@ -3001,11 +3059,14 @@ ${PB[purpose]||PB.self}${styleContext}`;
 
   const res=await fetch('/api/analyze',{
     method:'POST',headers:specvApiHeaders(),
-    body:JSON.stringify({model:'claude-sonnet-5',max_tokens:1800,messages:[{role:'user',content:prompt}]}),
+    body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1800,messages:[{role:'user',content:prompt}]}),
   });
   if(!res.ok){
-    const detail=await res.text();
-    throw new Error(`API ${res.status}: ${detail.slice(0,300)}`);
+    let detail={};
+    try{detail=await res.json();}catch(e){}
+    const err=new Error(`AI分析エラー: ${detail.code||'AI_UNAVAILABLE'}`);
+    err.publicCode=detail.code||'AI_UNAVAILABLE';
+    throw err;
   }
   const data=await res.json();
   const output=data.content?.[0]?.text||'';
