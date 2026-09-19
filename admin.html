@@ -589,7 +589,7 @@
   <button class="tab" onclick="setFilter('free', this)">FREE</button>
   <button class="tab" onclick="setFilter('paid', this)">PAID</button>
   <button class="tab" onclick="setFilter('unused', this)">未使用</button>
-  <button class="tab" onclick="setFilter('pending', this)">未受診</button>
+  <!-- 旧pendingは未使用として統合表示 -->
   <button class="tab" onclick="setFilter('used', this)">受診済</button>
 </div>
 
@@ -621,6 +621,11 @@
     <div class="new-token-display">
       <div class="new-token-id" id="newTokenId" style="color:var(--free)">F001</div>
       <div class="new-token-url" id="newTokenUrl"></div>
+    </div>
+
+    <div class="note-field">
+      <label for="issueQuantity">発行数（1〜20）</label>
+      <input type="number" id="issueQuantity" min="1" max="20" value="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
     </div>
 
     <div class="note-field">
@@ -663,7 +668,6 @@ const BASE_URL_FREE = 'https://spec-v.vercel.app/main.html';
 const BASE_URL_PAID = 'https://spec-v.vercel.app/main.html';
 const STATUS_META = Object.freeze({
   unused: Object.freeze({ label: '未使用', badgeClass: 'badge-unused' }),
-  pending: Object.freeze({ label: '未受診', badgeClass: 'badge-pending' }),
   used: Object.freeze({ label: '受診済', badgeClass: 'badge-used' })
 });
 
@@ -799,8 +803,7 @@ function renderTable() {
   const filtered = tokens.filter(t => {
     if (currentFilter === 'free'   && t.type !== 'free')     return false;
     if (currentFilter === 'paid'   && t.type !== 'paid')     return false;
-    if (currentFilter === 'unused' && t.status !== 'unused') return false;
-    if (currentFilter === 'pending' && t.status !== 'pending') return false;
+    if (currentFilter === 'unused' && normalizeStatus(t.status) !== 'unused') return false;
     if (currentFilter === 'used'   && t.status !== 'used')   return false;
     if (currentSearch) {
       const q = currentSearch.toLowerCase();
@@ -906,6 +909,7 @@ function openIssueModal(type) {
   document.getElementById('newTokenId').textContent  = nextId;
   document.getElementById('newTokenId').style.color  = type === 'free' ? 'var(--free)' : 'var(--paid)';
   document.getElementById('newTokenUrl').textContent = url;
+  document.getElementById('issueQuantity').value = '1';
   document.getElementById('issueConfirmBtn').className = `btn btn-${type === 'free' ? 'free' : 'paid'}`;
   document.getElementById('noteInput').value = '';
   document.getElementById('issueModal').classList.add('show');
@@ -916,7 +920,9 @@ function closeModal() {
 }
 
 async function issueToken() {
-  const nextId = getNextId(pendingType);
+  const quantity = Math.min(20, Math.max(1, Number(document.getElementById('issueQuantity').value) || 1));
+  const ids = getNextIds(pendingType, quantity);
+  const nextId = ids[0];
   const note   = document.getElementById('noteInput').value;
   const departmentId = document.getElementById('departmentSelect').value;
   const department = departments.find(item => item.id === departmentId);
@@ -930,26 +936,24 @@ async function issueToken() {
     const data = await requestAdminTokens({
       method: 'POST',
       body: {
-        id: nextId,
-        type: pendingType,
-        status: 'unused',
-        issued_at: new Date().toISOString(),
-        note,
-        org_id: department ? department.org_id : '',
-        department_id: departmentId,
-        announced_at: announcedAt ? `${announcedAt}T00:00:00.000Z` : null,
-        deadline: deadline ? `${deadline}T23:59:59.999Z` : null,
-        announced_by: sessionStorage.getItem(ADMIN_PASSWORD_KEY) ? 'admin' : ''
-      }
+        batch: ids.map(id => ({
+          id, type: pendingType, status: 'unused', issued_at: new Date().toISOString(), note,
+          org_id: department ? department.org_id : '', department_id: departmentId,
+          announced_at: announcedAt ? `${announcedAt}T00:00:00.000Z` : null,
+          deadline: deadline ? `${deadline}T23:59:59.999Z` : null,
+          announced_by: sessionStorage.getItem(ADMIN_PASSWORD_KEY) ? 'admin' : ''
+        }))
     });
 
-    tokens.push(data.token);
+    const issued = Array.isArray(data.tokens) ? data.tokens : [data.token];
+    tokens.push(...issued.filter(Boolean));
     currentPage = 1;
     renderTable();
     updateStats();
     closeModal();
-    copyToClipboard(url);
-    showToast(`${nextId} 発行！URLをコピーしました`);
+    const urls = issued.map(t => `${pendingType === 'free' ? BASE_URL_FREE : BASE_URL_PAID}?token=${t.id}`);
+    copyToClipboard(urls.join('\n'));
+    showToast(`${nextId}${issued.length > 1 ? ' ほか' + (issued.length - 1) + '件' : ''} 発行！URLをコピーしました`);
   } catch (error) {
     console.error(error);
     showToast(`${nextId} を発行できませんでした`);
@@ -957,13 +961,17 @@ async function issueToken() {
 }
 
 function getNextId(type) {
+  return getNextIds(type, 1)[0];
+}
+
+function getNextIds(type, count) {
   const prefix = type === 'free' ? 'F' : 'P';
   const existingNumbers = tokens
     .filter(t => t.type === type && String(t.id || '').startsWith(prefix))
     .map(t => Number(String(t.id).slice(1)))
     .filter(Number.isFinite);
-  const num = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
-  return prefix + String(num).padStart(3, '0');
+  const start = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+  return Array.from({ length: count }, (_, index) => prefix + String(start + index).padStart(3, '0'));
 }
 
 // ============================================================
@@ -1033,6 +1041,7 @@ function getStatusLabel(status) {
 }
 
 function normalizeStatus(status) {
+  if (status === 'pending') return 'unused';
   return Object.prototype.hasOwnProperty.call(STATUS_META, status) ? status : 'unused';
 }
 
