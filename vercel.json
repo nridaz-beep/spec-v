@@ -14,5 +14,6 @@
       "handle": "filesystem"
     }
   ],
-  "buildCommand": "npm run check"
+  "buildCommand": "npm run check",
+  "outputDirectory": "."
 }
