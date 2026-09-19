@@ -7,7 +7,12 @@ module.exports = async function handler(req, res) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'API key not configured' });
+    console.error('[analyze] AI provider is not configured');
+    return res.status(503).json({
+      error: 'ai_provider_unavailable',
+      code: 'AI_SERVICE_UNAVAILABLE',
+      message: 'AI分析サービスを利用できません。',
+    });
   }
 
   const localDev = !process.env.VERCEL && process.env.NODE_ENV !== 'production' && req.headers['x-specv-dev'] === '1';
