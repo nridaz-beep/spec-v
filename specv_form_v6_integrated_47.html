@@ -2445,7 +2445,9 @@ async function finalizeDiagnosis(diag){
     }
   }
   window._pendingNotify={scores,ti,compi,kish,mode,aiText};
-  if(!_ai1GateBlocked && aiText)sendDiagnosisData(scores,ti,compi,kish,mode,aiText,'',null);
+  // 診断結果・PDFまで完了した品質ゲート保留ケースは、AI本文がなくても
+  // 完了通知とトークン使用済み更新を実行する。AI未取得のまま止めない。
+  if(aiText || _ai1GateBlocked)sendDiagnosisData(scores,ti,compi,kish,mode,aiText||'','',null);
 }
 
 // =============================
