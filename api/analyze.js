@@ -58,32 +58,7 @@ module.exports = async function handler(req, res) {
     }
 
     const textBlock = Array.isArray(data?.content)
-      ? data.content.find((block) => block?.type === 'text' && typeof block      if (!officialStress) {
-        console.error('[analyze] Standard output missing official stress context');
-        return res.status(502).json({
-          error: 'ai_provider_error',
-          code: 'AI_STRESS_CONTEXT_MISSING',
-          message: '正式なストレス反応がAI入力に含まれていません。',
-        });
-      }
-
-      const mismatchedStressLabels = stressLabels.filter((label) => label !== officialStress && textBlock.text.includes(label));
-      if (!textBlock.text.includes(officialStress) || mismatchedStressLabels.length) {
-        console.error('[analyze] Standard output stress mismatch', {const promptText = Array.isArray(messages)
-const stressLabels = ['強引・独断', '石頭・拒絶', '抱え込み・献身疲れ', '逃避・放棄'];
-const stressMatch = promptText.match(/【正式なストレス反応】\s*([^\r\n]+)/);
-const officialStress = stressMatch ? stressMatch[1].trim() : '';
-          official_stress: officialStress,
-          mismatched_stress: mismatchedStressLabels,
-        });
-        return res.status(502).json({
-          error: 'ai_provider_error',
-          code: 'AI_STRESS_MISMATCH',
-          message: 'AI標準アウトプットのストレス反応が正式判定と一致しません。',
-        });
-      }
-
-const missingTags = requiredTags.filter((tag) => !textBlock.text.includes(`【${tag}】`));const missingTags /*stress*/.text === 'string' && block.text.trim())
+      ? data.content.find((block) => block?.type === 'text' && typeof block.text === 'string' && block.text.trim())
       : null;
 
     if (!textBlock) {
