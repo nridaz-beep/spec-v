@@ -1519,25 +1519,7 @@ function openPrintPage(){
       <div style="padding:14px 16px;background:#f5f0e4;border-right:1px solid #e0d0a0;">
         <div style="font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.5em;color:${tcol};text-transform:uppercase;margin-bottom:3px;">Human Type</div>
         <div style="font-size:38px;font-weight:700;color:${tcol};line-height:1;margin-bottom:5px;">${ti.q}</div>
-        <div style="font-size:10px;color:#666;line-height:1.7;margin-bottom:8px;">${ti.s||''}</div>const ct=compi.map(d=>`${d.label}:${d.score}`).join(' / ');
-
-// 正式なストレス反応は診断計算の判定結果をそのままAIへ渡す。
-const stressMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-const stressScores={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};
-questions.forEach((q,i)=>{
-  if(!q.sub||!q.sub.includes('消極'))return;
-  let v=answers[i];if(q.reverse)v=8-v;コンピテンシー詳細：${ct}
-
-【正式なストレス反応】// 正式なストレス反応は診断計算の判定結果をそのままAIへ渡す（標準出力へ固定）。
-${officialStress}
-この名称は診断計算で確定した正式名称です。本文では必ずこの名称をそのまま使用してください。性向・モード・16項目との関係は説明してよいですが、別のストレス反応名を推測・生成・置換してはいけません。
-  if(q.sub==='牽引モード消極')stressScores['牽引モード']=v;
-  else if(q.sub==='実務モード消極')stressScores['実務モード']=v;
-  else if(q.sub==='支援モード消極')stressScores['支援モード']=v;
-  else if(q.sub==='発想モード消極')stressScores['発想モード']=v;
-});
-const topStress=Object.entries(stressScores).sort((a,b)=>b[1]-a[1])[0][0];
-const officialStress=stressMap[topStress]||'';
+        <div style="font-size:10px;color:#666;line-height:1.7;margin-bottom:8px;">${ti.s||''}</div>
         <div style="display:inline-flex;align-items:center;background:#fff;border:1px solid ${tcol};border-radius:100px;padding:2px 12px;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:${tcol};">現在の状態パターン</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:9px;">
           <div style="background:rgba(255,255,255,.72);border:1px solid #e0d0a0;border-radius:3px;padding:7px 9px;">
