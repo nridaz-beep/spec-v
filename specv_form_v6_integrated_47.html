@@ -2433,7 +2433,17 @@ async function finalizeDiagnosis(diag){
   // AI分析が成功した結果だけを正式完了として通知・消費する。
   // AI失敗時にトークンだけ先に消費しない。
   clearInterval(iv);
-  showResult(scores,ti,compi,kish,mode,aiText);
+  // AI欄の描画に問題があっても、診断結果とPDF導線は止めない。
+  try{
+    showResult(scores,ti,compi,kish,mode,aiText);
+  }catch(e){
+    console.error('[Spec-V] showResult failed:',e?.message||String(e));
+    try{sh('scr-result');}catch(_e){}
+    const aiBlocks=document.getElementById('aiBlocks');
+    if(aiBlocks){
+      aiBlocks.innerHTML='<div class="ai-block"><div class="ai-text">診断結果は表示できます。AI分析の表示中に一部エラーが発生しました。PDFは下のボタンから作成できます。</div></div>';
+    }
+  }
   window._pendingNotify={scores,ti,compi,kish,mode,aiText};
   if(!_ai1GateBlocked && aiText)sendDiagnosisData(scores,ti,compi,kish,mode,aiText,'',null);
 }
@@ -2966,7 +2976,9 @@ async function callAI(scores,ti,compi){
   _ai1GateBlocked=qualityGate.blocked;
   _ai1GateMessage=qualityGate.message;
   if(qualityGate.blocked){
-    await recoverPaidTokenForGate();
+    // 回答品質ゲートはAI欄だけを保留にする。復旧処理は待たず、
+    // 結果画面・PDF導線へ直ちに進める（Fトークンは未使用のまま）。
+    void recoverPaidTokenForGate();
     return null;
   }
   const purLblAI={hire:'面接・採用',grow:'組織育成',self:'自己理解'};
