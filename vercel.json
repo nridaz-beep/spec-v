@@ -1,9 +1,18 @@
 {
   "functions": {
-    "api/deep-report.js": { "includeFiles": "prompts/*.md", "maxDuration": 300 }
+    "api/deep-report.js": {
+      "includeFiles": "prompts/*.md",
+      "maxDuration": 300
+    }
   },
   "routes": [
-    { "src": "/prompts(?:/.*)?", "status": 404 },
-    { "handle": "filesystem" }
-  ]
+    {
+      "src": "/prompts(?:/.*)?",
+      "status": 404
+    },
+    {
+      "handle": "filesystem"
+    }
+  ],
+  "buildCommand": "npm run check"
 }
