@@ -515,7 +515,7 @@
     <h1>SPEC-V ADMIN</h1>
     <p>管理画面を開くためのパスワードを入力してください。認証後、このブラウザのタブ内だけ有効になります。</p>
     <input class="auth-input" id="adminPasswordInput" type="password" autocomplete="current-password" placeholder="管理パスワード">
-    <button class="btn btn-paid" type="submit" style="width:100%;justify-content:center;padding:12px 16px;">ログイン</button>
+    <button class="btn btn-paid" id="adminLoginButton" type="submit" style="width:100%;justify-content:center;padding:12px 16px;">ログイン</button>
     <div class="auth-error" id="authError"></div>
   </form>
 </div>
@@ -664,6 +664,7 @@
 // ============================================================
 const ADMIN_TOKENS_API = '/api/admin-tokens';
 const ADMIN_PASSWORD_KEY = 'specv_admin_password';
+let adminAuthInFlight = false;
 const BASE_URL_FREE = 'https://spec-v.vercel.app/main.html';
 const BASE_URL_PAID = 'https://spec-v.vercel.app/main.html';
 const STATUS_META = Object.freeze({
@@ -695,6 +696,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 async function handleAdminLogin(event) {
   event.preventDefault();
+  if (adminAuthInFlight) return;
   const input = document.getElementById('adminPasswordInput');
   const error = document.getElementById('authError');
   const password = input.value.trim();
@@ -708,46 +710,47 @@ async function handleAdminLogin(event) {
 }
 
 async function unlockAdmin(password, showErrors = false) {
+  if (adminAuthInFlight) return;
   const error = document.getElementById('authError');
+  adminAuthInFlight = true;
+  setAuthBusy(true);
   try {
     await loadTokens(password);
     await loadDepartments(password);
     sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
+    error.textContent = '';
     document.getElementById('authOverlay').style.display = 'none';
     document.getElementById('adminShell').classList.remove('locked');
   } catch (err) {
     console.error(err);
-    sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
+    clearAdminPassword();
     document.getElementById('authOverlay').style.display = 'flex';
     document.getElementById('adminShell').classList.add('locked');
-    if (showErrors) error.textContent = err.message === 'unauthorized' ? 'パスワードが違います' : '管理APIに接続できませんでした';
+    if (showErrors) {
+      error.textContent = err.message === 'unauthorized'
+        ? 'パスワードが違います。もう一度入力してください。'
+        : '管理APIに接続できませんでした。時間を置いて再度お試しください。';
+    }
+  } finally {
+    adminAuthInFlight = false;
+    setAuthBusy(false);
   }
 }
 
 async function loadTokens(password) {
-  try {
-    const data = await requestAdminTokens({ password });
-    tokens = Array.isArray(data.tokens) ? data.tokens : [];
-    renderTable();
-    updateStats();
-  } catch (error) {
-    console.error(error);
-    showToast('トークン一覧を読み込めませんでした');
-  }
+  const data = await requestAdminTokens({ password });
+  tokens = Array.isArray(data.tokens) ? data.tokens : [];
+  renderTable();
+  updateStats();
 }
 
 async function loadDepartments(password) {
-  try {
-    const data = await requestAdminDepartments({ password });
-    departments = Array.isArray(data.departments) ? data.departments : [];
-    renderDepartmentOptions();
-    document.getElementById('departmentList').textContent = departments.length
-      ? departments.map(d => `${d.org_id} / ${d.name}（対象${d.target_count}人）`).join('　')
-      : '登録済み部署はありません。';
-  } catch (error) {
-    console.error(error);
-    document.getElementById('departmentList').textContent = '部署情報を読み込めませんでした。';
-  }
+  const data = await requestAdminDepartments({ password });
+  departments = Array.isArray(data.departments) ? data.departments : [];
+  renderDepartmentOptions();
+  document.getElementById('departmentList').textContent = departments.length
+    ? departments.map(d => `${d.org_id} / ${d.name}（対象${d.target_count}人）`).join('　')
+    : '登録済み部署はありません。';
 }
 
 function renderDepartmentOptions() {
@@ -1080,6 +1083,34 @@ function exportCSV() {
   a.click();
 }
 
+function clearAdminPassword() {
+  try { sessionStorage.removeItem(ADMIN_PASSWORD_KEY); } catch (error) {}
+}
+
+function setAuthBusy(busy) {
+  const button = document.getElementById('adminLoginButton');
+  const input = document.getElementById('adminPasswordInput');
+  if (button) {
+    button.disabled = busy;
+    button.textContent = busy ? '認証中…' : 'ログイン';
+  }
+  if (input) input.disabled = busy;
+}
+
+function handleAdminUnauthorized() {
+  clearAdminPassword();
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('adminShell').classList.add('locked');
+  const error = document.getElementById('authError');
+  if (error) error.textContent = 'ログインの有効期限が切れました。再度ログインしてください。';
+  const input = document.getElementById('adminPasswordInput');
+  if (input) {
+    input.value = '';
+    input.disabled = false;
+    input.focus();
+  }
+}
+
 async function requestAdminTokens(options = {}) {
   const password = options.password || sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
   const headers = { 'x-admin-password': password };
@@ -1093,7 +1124,10 @@ async function requestAdminTokens(options = {}) {
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401) throw new Error('unauthorized');
+    if (response.status === 401) {
+      handleAdminUnauthorized();
+      throw new Error('unauthorized');
+    }
     throw new Error(data.error || `request_failed_${response.status}`);
   }
   return data;
@@ -1106,7 +1140,10 @@ async function requestAdminDepartments(options = {}) {
   const response = await fetch(ADMIN_DEPARTMENTS_API, { method: options.method || 'GET', headers, body: options.body ? JSON.stringify(options.body) : undefined });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    if (response.status === 401) throw new Error('unauthorized');
+    if (response.status === 401) {
+      handleAdminUnauthorized();
+      throw new Error('unauthorized');
+    }
     throw new Error(data.error || `request_failed_${response.status}`);
   }
   return data;
@@ -1118,7 +1155,13 @@ async function requestAdminOrganizationMapAccess(options = {}) {
   if (options.body) headers['Content-Type'] = 'application/json';
   const response = await fetch(ADMIN_ORG_MAP_ACCESS_API, { method: options.method || 'GET', headers, body: options.body ? JSON.stringify(options.body) : undefined });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || `request_failed_${response.status}`);
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleAdminUnauthorized();
+      throw new Error('unauthorized');
+    }
+    throw new Error(data.error || `request_failed_${response.status}`);
+  }
   return data;
 }
 
