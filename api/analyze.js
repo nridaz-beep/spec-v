@@ -117,7 +117,7 @@ module.exports = async function handler(req, res) {
     // 一次AI本文の正式ストレス反応を、診断結果の値と照合する
     if (isStandardOutput) {
       const stressLabels = ['強引・独断', '石頭・拒絶', '抱え込み・献身疲れ', '逃避・放棄'];
-      const stressMatch = promptText.match(/ストレス反応：([^\\n]+)/);
+      const stressMatch = promptText.match(/ストレス反応：([^\n]+)/);
       const expectedStress = stressMatch ? String(stressMatch[1]).trim() : '';
       if (stressLabels.includes(expectedStress)) {
         const mentionedStress = stressLabels.filter((label) => textBlock.text.includes(label));
