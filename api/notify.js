@@ -113,7 +113,7 @@ function score(value) {
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-specv-token, x-specv-claim');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-specv-token, x-specv-claim, x-specv-bound-token');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
@@ -130,6 +130,10 @@ module.exports = async function handler(req, res) {
     const d = data || {};
 
     const tokenId = String(d.token_id || '').trim().toUpperCase();
+    const boundTokenId = String(req.headers['x-specv-bound-token'] || '').trim().toUpperCase();
+    if (boundTokenId && boundTokenId !== tokenId) {
+      return res.status(403).json({ ok: false, reason: 'token_mismatch' });
+    }
     const claim = verifyTokenClaim(d.claim, tokenId);
     if (!tokenId || tokenId === 'DEV' || !claim.valid) {
       return res.status(401).json({ ok: false, reason: 'diagnosis_session_required' });

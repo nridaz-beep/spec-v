@@ -17,6 +17,10 @@ module.exports = async function handler(req, res) {
 
   const localDev = !process.env.VERCEL && process.env.NODE_ENV !== 'production' && req.headers['x-specv-dev'] === '1';
   const tokenId = String(req.headers['x-specv-token'] || '').trim().toUpperCase();
+  const boundTokenId = String(req.headers['x-specv-bound-token'] || '').trim().toUpperCase();
+  if (!localDev && boundTokenId && boundTokenId !== tokenId) {
+    return res.status(403).json({ error: 'token_mismatch' });
+  }
   if (!localDev && !verifyTokenClaim(req.headers['x-specv-claim'], tokenId).valid) {
     return res.status(401).json({ error: 'diagnosis_session_required' });
   }
