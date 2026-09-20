@@ -665,8 +665,18 @@ async function startCheckout() {
     return;
   }
 
+  // URLトークンがある場合は、以前のセッションを破棄してURLの値に固定
+  if(token){
+    sessionStorage.removeItem('specv_token');
+    sessionStorage.removeItem('specv_token_claim');
+    sessionStorage.setItem('specv_url_token', token.toUpperCase());
+  }
+
   // トークンなし
   if(!token){
+    sessionStorage.removeItem('specv_token');
+    sessionStorage.removeItem('specv_token_claim');
+    sessionStorage.removeItem('specv_url_token');
     showGate('診断を受けるには専用URLが必要です。', false, true, true);
     return;
   }
