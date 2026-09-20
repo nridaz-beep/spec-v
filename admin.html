@@ -716,7 +716,16 @@ async function unlockAdmin(password, showErrors = false) {
   const error = document.getElementById('authError');
   try {
     await loadTokens(password);
-    await loadDepartments(password);
+    // 部署一覧は補助機能。部署APIの不調で管理画面全体をロックしない。
+    try {
+      await loadDepartments(password);
+    } catch (departmentError) {
+      console.warn('[admin] departments unavailable; continuing without department data', departmentError);
+      departments = [];
+      renderDepartmentOptions();
+      const departmentList = document.getElementById('departmentList');
+      if (departmentList) departmentList.textContent = '部署一覧を取得できませんでした。トークン管理は利用できます。';
+    }
     sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
     document.getElementById('authOverlay').style.display = 'none';
     document.getElementById('adminShell').classList.remove('locked');
