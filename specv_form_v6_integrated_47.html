@@ -578,6 +578,10 @@ window.SPECV_LOCAL_DEV = new URLSearchParams(location.search).has('dev') &&
   ['localhost', '127.0.0.1'].includes(location.hostname);
 
 function submitTokenGate() {
+  // URLにトークンがある場合は、そのトークンから変更させない
+  const urlToken = new URL(location.href).searchParams.get('token');
+  if(urlToken) return;
+
   const input = document.getElementById('tg-token-input');
   const token = input ? input.value.trim().toUpperCase() : '';
   if(!token){
@@ -671,7 +675,8 @@ async function startCheckout() {
   showGate('認証中...', true, false, false);
 
   fetch('/api/token?id=' + encodeURIComponent(token), {
-    method: 'GET'
+    method: 'GET',
+    headers: {'x-specv-bound-token': token}
   })
   .then(r => r.json())
   .then(data => {
@@ -679,22 +684,23 @@ async function startCheckout() {
       // 有効 → ゲート解除・トークンをセッションに保存
       sessionStorage.setItem('specv_token', token);
       sessionStorage.setItem('specv_token_claim', data.claim || '');
+      sessionStorage.setItem('specv_url_token', token);
       hideGate();
     } else if(data.reason === 'already_used'){
-      showGate('このURLはすでに使用済みです。\n診断は1回のみ有効です。', false, true, false);
+      showGate('このURLはすでに使用済みです。\n診断は1回のみ有効です。', false, false, false);
     } else if(data.reason === 'not_found'){
-      showGate('無効なトークンです。', false, true, true);
+      showGate('無効なトークンです。', false, false, false);
     } else if(data.reason === 'expired'){
-      showGate('このURLの有効期限が切れています。', false, true, true);
+      showGate('このURLの有効期限が切れています。', false, false, false);
     } else if(data.reason === 'server_config_missing' || data.reason === 'db_error'){
-      showGate('認証サーバーの確認中にエラーが発生しました。\n担当者にお問い合わせください。', false, true, false);
+      showGate('認証サーバーの確認中にエラーが発生しました。\n担当者にお問い合わせください。', false, false, false);
     } else {
-      showGate('エラーが発生しました。\nしばらくしてから再度お試しください。', false, true, false);
+      showGate('エラーが発生しました。\nしばらくしてから再度お試しください。', false, false, false);
     }
   })
   .catch(() => {
     console.warn('[TokenGate] API接続失敗');
-    showGate('認証サーバーへ接続できませんでした。\nしばらくしてから再度お試しください。', false, true, false);
+    showGate('認証サーバーへ接続できませんでした。\nしばらくしてから再度お試しください。', false, false, false);
   });
 })();
 </script>
@@ -1348,8 +1354,10 @@ function specvApiHeaders(){
   const headers={'Content-Type':'application/json'};
   const token=sessionStorage.getItem('specv_token')||'';
   const claim=sessionStorage.getItem('specv_token_claim')||'';
+  const boundToken=sessionStorage.getItem('specv_url_token')||'';
   if(token)headers['x-specv-token']=token;
   if(claim)headers['x-specv-claim']=claim;
+  if(boundToken)headers['x-specv-bound-token']=boundToken;
   if(window.SPECV_LOCAL_DEV)headers['x-specv-dev']='1';
   return headers;
 }
