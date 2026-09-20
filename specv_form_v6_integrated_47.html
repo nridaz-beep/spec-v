@@ -1542,7 +1542,8 @@ function openPrintPage(){
   const bottomScore=srt[srt.length-1]?.score||0;
   const topCompPdf=compi.filter(d=>d.score===topScore);
   const bottomCompPdf=compi.filter(d=>d.score===bottomScore);
-  const top3=srt.slice(0,3),bot3=[...compi].sort((a,b)=>a.score-b.score).slice(0,3);
+  const top2=selectByBoundary(compi,'score',false,2);
+  const bot2=selectByBoundary(compi,'score',true,2);
 
   // AI取得（直接変数から）
   const ALB={hire:{tags:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT'],lbls:['現在の状態から見える特徴','活かせる可能性','追加確認事項','面接質問','入社後の環境・支援']},grow:{tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL'],lbls:['現在地','成長の鍵','育成の注意点','最も力が出る環境','育成方針の総括']},self:{tags:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],lbls:['今の状態','本来の力','自覚を促したい点','次に意識すること','統合所見']}};
@@ -1640,23 +1641,23 @@ function openPrintPage(){
     ${sec('Peak &amp; Valley — 強み &amp; 伸びしろ')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
       <div style="border-radius:3px;overflow:hidden;border:1px solid #c0e8cc;">
-        <div style="background:#f0faf4;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#3a8a5a;text-transform:uppercase;border-bottom:1px solid #c0e8cc;">▲ 代表的な上位項目</div>
-        ${top3.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid #f0faf4;"><span style="font-size:11px;color:#444;">${d.label}</span><strong style="font-size:14px;color:#3a8a5a;">${d.score}</strong></div>`).join('')}
+        <div style="background:#f0faf4;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#3a8a5a;text-transform:uppercase;border-bottom:1px solid #c0e8cc;">▲ 強み TOP2</div><div style="font-size:8px;color:#777;margin-top:4px;">同点はすべて表示</div>
+        ${top2.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid #f0faf4;"><span style="font-size:11px;color:#444;">${d.label}</span><strong style="font-size:14px;color:#3a8a5a;">${d.score}</strong></div>`).join('')}
       </div>
       <div style="border-radius:3px;overflow:hidden;border:1px solid #e0d0a0;">
-        <div style="background:#fdf8ee;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#b8943a;text-transform:uppercase;border-bottom:1px solid #e0d0a0;">▼ 相対的な谷（代表項目）</div>
-        ${bot3.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid #fdf8ee;"><span style="font-size:11px;color:#444;">${d.label}</span><strong style="font-size:14px;color:${d.score<=3.5?'#b03838':'#b8943a'};">${d.score}</strong></div>`).join('')}
+        <div style="background:#fdf8ee;padding:8px 12px;font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.3em;color:#b8943a;text-transform:uppercase;border-bottom:1px solid #e0d0a0;">▼ 伸びしろ TOP2</div><div style="font-size:8px;color:#777;margin-top:4px;">同点はすべて表示</div>
+        ${bot2.map(d=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-bottom:1px solid #fdf8ee;"><span style="font-size:11px;color:#444;">${d.label}</span><strong style="font-size:14px;color:${d.score<=3.5?'#b03838':'#b8943a'};">${d.score}</strong></div>`).join('')}
       </div>
     </div>
     ${sec('Peak &amp; Valley Analysis — 山谷分析')}
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
       <div style="background:#f0faf4;border-left:4px solid #3a8a5a;border-radius:0 4px 4px 0;padding:12px 14px;">
         <div style="font-size:7px;letter-spacing:.25em;color:#3a8a5a;text-transform:uppercase;margin-bottom:7px;">▲ 山（強みの読み解き）</div>
-        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const t=topCompPdf[0]||top3[0];return `${topCompPdf.map(d=>d.label).join('・')}（${t?.score||'—'}）は現在の最高群です。${t?.group==='tamashii'?'使命感・ビジョンを描き周囲を動かす力':t?.group==='ai'?'人への貢献と信頼構築の力':t?.group==='anzen'?'組織の安全・誠実さへの貢献':'高い推進力'}として表れている可能性があります。`;})()}</p>
+        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const t=topCompPdf[0]||top2[0];return `${topCompPdf.map(d=>d.label).join('・')}（${t?.score||'—'}）は現在の最高群です。${t?.group==='tamashii'?'使命感・ビジョンを描き周囲を動かす力':t?.group==='ai'?'人への貢献と信頼構築の力':t?.group==='anzen'?'組織の安全・誠実さへの貢献':'高い推進力'}として表れている可能性があります。`;})()}</p>
       </div>
       <div style="background:#fdf8ee;border-left:4px solid #c8a96e;border-radius:0 4px 4px 0;padding:12px 14px;">
         <div style="font-size:7px;letter-spacing:.25em;color:#c8a96e;text-transform:uppercase;margin-bottom:7px;">▼ 谷（伸びしろの読み解き）</div>
-        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const b=bottomCompPdf[0]||bot3[0];return `${bottomCompPdf.map(d=>d.label).join('・')}（${b?.score||'—'}）は全体の中で相対的に低く出ている領域です。5点前後であれば弱点や人格評価ではなく、全体との比較で見える現在の谷として扱います。`;})()}</p>
+        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const b=bottomCompPdf[0]||bot2[0];return `${bottomCompPdf.map(d=>d.label).join('・')}（${b?.score||'—'}）は全体の中で相対的に低く出ている領域です。5点前後であれば弱点や人格評価ではなく、全体との比較で見える現在の谷として扱います。`;})()}</p>
       </div>
     </div>
     <div style="background:#1a1714;border-radius:4px;padding:14px 18px;display:flex;gap:14px;align-items:flex-start;">
@@ -1725,6 +1726,17 @@ function topEntries(obj){
   return entries.filter(([,v])=>(Number(v)||0)===max);
 }
 function topLabels(obj){return topEntries(obj).map(([k])=>k);}
+// スコア順の2番目を境界にし、境界点と同点の項目をすべて表示する。
+// 同点内の表示順だけ元配列順を維持し、同点を能力上の優先順位には使わない。
+function selectByBoundary(items, scoreKey='score', ascending=false, count=2){
+  const indexed=(items||[]).map((item,index)=>({item,index,score:Number(item?.[scoreKey])||0}));
+  const sorted=indexed.slice().sort((a,b)=>
+    (ascending?a.score-b.score:b.score-a.score)||a.index-b.index
+  );
+  if(sorted.length<=count)return sorted.map(({item})=>item);
+  const boundary=sorted[count-1].score;
+  return sorted.filter(({score})=>ascending?score<=boundary:score>=boundary).map(({item})=>item);
+}
 
 // =============================
 // スタート
@@ -3050,7 +3062,10 @@ async function callAI(scores,ti,compi){
   const kishText=kishOrder.map(k=>`${k}:${Math.round(kishPct[k]||0)}%`).join(' / ');
   const modeText=modeOrder.map(k=>`${k}:${Math.round(modePct[k]||0)}%`).join(' / ');
   const primaryKish=kishOrder.slice().sort((a,b)=>(kishPct[b]||0)-(kishPct[a]||0)).slice(0,2).join(' × ');
-  const primaryMode=modeOrder.slice().sort((a,b)=>(modePct[b]||0)-(modePct[a]||0))[0];
+  const primaryModes=topLabels(modePct);
+  // 既存の単一値は互換用に残し、AIには同率首位の全件を渡す。
+  const primaryMode=primaryModes[0]||'—';
+  const primaryModeText=primaryModes.length>1?primaryModes.join('と')+'の同率':primaryMode;
   const stressMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
   // 正式なストレス反応は、平常時モードの首位ではなく消極面スコアで判定する
   const stressScores={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};
@@ -3109,7 +3124,8 @@ async function callAI(scores,ti,compi){
 推進力:${scores.suishin} 毒のなさ:${scores.doku} 解放度:${scores.kaihou} 自己認知:${scores.jiko} 魂:${scores.tamashii} 愛:${scores.ai}
 総合タイプ：${ti.q} / Lv${ti.lv}（${ti.lvN}）
 性向：${primaryKish}（${kishText}）
-モード：${primaryMode}（${modeText}）
+モード：${primaryModeText}（${modeText}）
+主モードの扱い：${primaryModes.length>1?primaryModes.join('と')+'の同率。どちらか一方を代表扱いせず、両方の組み合わせとして読む。':'単一首位。'}
 ストレス反応：${stressLabel}
 正式なストレス反応として「${stressLabel}」を本文中に1回以上明示し、別のストレス反応名は記載しない。
 16項目詳細：${ct}
