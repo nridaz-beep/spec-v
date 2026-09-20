@@ -114,6 +114,28 @@ module.exports = async function handler(req, res) {
       }
     }
 
+    // 一次AI本文の正式ストレス反応を、診断結果の値と照合する
+    if (isStandardOutput) {
+      const stressLabels = ['強引・独断', '石頭・拒絶', '抱え込み・献身疲れ', '逃避・放棄'];
+      const stressMatch = promptText.match(/ストレス反応：([^\\n]+)/);
+      const expectedStress = stressMatch ? String(stressMatch[1]).trim() : '';
+      if (stressLabels.includes(expectedStress)) {
+        const mentionedStress = stressLabels.filter((label) => textBlock.text.includes(label));
+        const conflictingStress = mentionedStress.filter((label) => label !== expectedStress);
+        if (!textBlock.text.includes(expectedStress) || conflictingStress.length > 0) {
+          console.error('[analyze] Standard output stress mismatch', {
+            expected_stress: expectedStress,
+            mentioned_stress: mentionedStress,
+          });
+          return res.status(502).json({
+            error: 'ai_provider_error',
+            code: 'AI_STRESS_MISMATCH',
+            message: 'AI標準アウトプットのストレス反応が診断結果と一致しません。',
+          });
+        }
+      }
+    }
+
     return res.status(200).json({
       ...data,
       content: [{ type: 'text', text: textBlock.text }],
