@@ -26,16 +26,22 @@ function walk(dir) {
 }
 
 walk(path.join(root, 'api'));
+checkJavaScript(
+  fs.readFileSync(path.join(root, 'admin-deep-report.js'), 'utf8'),
+  'admin-deep-report.js'
+);
 
-const htmlPath = path.join(root, 'specv_form_v6_integrated_47.html');
-const html = fs.readFileSync(htmlPath, 'utf8');
 const scriptPattern = /<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi;
-let match;
-let scriptIndex = 0;
-while ((match = scriptPattern.exec(html))) {
-  scriptIndex += 1;
-  if (match[1].trim()) {
-    checkJavaScript(match[1], `${path.relative(root, htmlPath)}#script${scriptIndex}`);
+for (const htmlName of ['specv_form_v6_integrated_47.html', 'admin.html']) {
+  const htmlPath = path.join(root, htmlName);
+  const html = fs.readFileSync(htmlPath, 'utf8');
+  let match;
+  let scriptIndex = 0;
+  while ((match = scriptPattern.exec(html))) {
+    scriptIndex += 1;
+    if (match[1].trim()) {
+      checkJavaScript(match[1], `${path.relative(root, htmlPath)}#script${scriptIndex}`);
+    }
   }
 }
 

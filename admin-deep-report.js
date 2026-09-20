@@ -40,7 +40,13 @@
     try{
       const response=await fetch('/api/deep-report',{method:'POST',headers:{'Content-Type':'application/json','x-admin-password':password},body:JSON.stringify({token_id,diagnostic}),signal:AbortSignal.timeout(260000)});
       const data=await response.json().catch(()=>({error:'サーバーの応答を読み取れませんでした。'}));
-      if(!response.ok)throw Error(data.error||'生成できませんでした。');
+      if(!response.ok){
+        if(response.status===401){
+          handleAdminUnauthorized();
+          throw Error('unauthorized');
+        }
+        throw Error(data.error||'生成できませんでした。');
+      }
       if(data.token_id!==token_id || typeof data.report!=='string')throw Error('応答の対象トークンまたは本文を確認できませんでした。');
       result=data;
       el('output').textContent=data.report;

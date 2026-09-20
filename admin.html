@@ -664,7 +664,6 @@
 // ============================================================
 const ADMIN_TOKENS_API = '/api/admin-tokens';
 const ADMIN_PASSWORD_KEY = 'specv_admin_password';
-let adminAuthInFlight = false;
 const BASE_URL_FREE = 'https://spec-v.vercel.app/main.html';
 const BASE_URL_PAID = 'https://spec-v.vercel.app/main.html';
 const STATUS_META = Object.freeze({
@@ -681,6 +680,7 @@ let pendingType = 'free';
 let departments = [];
 const ADMIN_DEPARTMENTS_API = '/api/admin-departments';
 const ADMIN_ORG_MAP_ACCESS_API = '/api/admin-organization-map-access';
+let adminAuthInFlight = false;
 
 // ============================================================
 // 初期化
@@ -711,26 +711,19 @@ async function handleAdminLogin(event) {
 
 async function unlockAdmin(password, showErrors = false) {
   if (adminAuthInFlight) return;
-  const error = document.getElementById('authError');
   adminAuthInFlight = true;
   setAuthBusy(true);
+  const error = document.getElementById('authError');
   try {
     await loadTokens(password);
     await loadDepartments(password);
     sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
-    error.textContent = '';
     document.getElementById('authOverlay').style.display = 'none';
     document.getElementById('adminShell').classList.remove('locked');
   } catch (err) {
     console.error(err);
     clearAdminPassword();
-    document.getElementById('authOverlay').style.display = 'flex';
-    document.getElementById('adminShell').classList.add('locked');
-    if (showErrors) {
-      error.textContent = err.message === 'unauthorized'
-        ? 'パスワードが違います。もう一度入力してください。'
-        : '管理APIに接続できませんでした。時間を置いて再度お試しください。';
-    }
+    if (showErrors) error.textContent = err.message === 'unauthorized' ? 'パスワードが違います' : '管理APIに接続できませんでした';
   } finally {
     adminAuthInFlight = false;
     setAuthBusy(false);
@@ -751,6 +744,27 @@ async function loadDepartments(password) {
   document.getElementById('departmentList').textContent = departments.length
     ? departments.map(d => `${d.org_id} / ${d.name}（対象${d.target_count}人）`).join('　')
     : '登録済み部署はありません。';
+}
+
+function clearAdminPassword() {
+  sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('adminShell').classList.add('locked');
+}
+
+function setAuthBusy(isBusy) {
+  const button = document.getElementById('adminLoginButton');
+  if (!button) return;
+  button.disabled = isBusy;
+  button.textContent = isBusy ? '認証中…' : 'ログイン';
+}
+
+function handleAdminUnauthorized() {
+  clearAdminPassword();
+  const error = document.getElementById('authError');
+  if (error) error.textContent = 'セッションの有効期限が切れました。再度ログインしてください';
+  const input = document.getElementById('adminPasswordInput');
+  if (input) input.focus();
 }
 
 function renderDepartmentOptions() {
@@ -946,6 +960,7 @@ async function issueToken() {
           deadline: deadline ? `${deadline}T23:59:59.999Z` : null,
           announced_by: sessionStorage.getItem(ADMIN_PASSWORD_KEY) ? 'admin' : ''
         }))
+      }
     });
 
     const issued = Array.isArray(data.tokens) ? data.tokens : [data.token];
@@ -1081,34 +1096,6 @@ function exportCSV() {
   a.href = url;
   a.download = `specv_tokens_${new Date().toISOString().slice(0,10)}.csv`;
   a.click();
-}
-
-function clearAdminPassword() {
-  try { sessionStorage.removeItem(ADMIN_PASSWORD_KEY); } catch (error) {}
-}
-
-function setAuthBusy(busy) {
-  const button = document.getElementById('adminLoginButton');
-  const input = document.getElementById('adminPasswordInput');
-  if (button) {
-    button.disabled = busy;
-    button.textContent = busy ? '認証中…' : 'ログイン';
-  }
-  if (input) input.disabled = busy;
-}
-
-function handleAdminUnauthorized() {
-  clearAdminPassword();
-  document.getElementById('authOverlay').style.display = 'flex';
-  document.getElementById('adminShell').classList.add('locked');
-  const error = document.getElementById('authError');
-  if (error) error.textContent = 'ログインの有効期限が切れました。再度ログインしてください。';
-  const input = document.getElementById('adminPasswordInput');
-  if (input) {
-    input.value = '';
-    input.disabled = false;
-    input.focus();
-  }
 }
 
 async function requestAdminTokens(options = {}) {
