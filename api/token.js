@@ -19,7 +19,7 @@ const supabase = createClient(
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-specv-token, x-specv-claim');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-specv-token, x-specv-claim, x-specv-bound-token');
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -59,6 +59,14 @@ module.exports = async function handler(req, res) {
 
     if (!tokenId) {
       return res.status(400).json({ valid: false, reason: 'token_missing' });
+    }
+
+    // URLから固定されたトークンと異なるトークンへの乗り換えを拒否
+    const boundTokenId = String(
+      req.headers['x-specv-bound-token'] || req.query.bound_id || ''
+    ).trim().toUpperCase();
+    if (boundTokenId && boundTokenId !== tokenId) {
+      return res.status(403).json({ valid: false, reason: 'token_mismatch' });
     }
 
     const { data, error } = await supabase
@@ -103,6 +111,18 @@ module.exports = async function handler(req, res) {
     const tokenId = String(rawTokenId || '').trim().toUpperCase();
 
     if (!tokenId) return res.status(400).json({ success: false, reason: 'token_missing' });
+
+    // URLから固定されたトークンと異なるトークンへの乗り換えを拒否
+    const boundTokenId = String(
+      body.bound_token_id ||
+      req.headers['x-specv-bound-token'] ||
+      req.query.bound_id ||
+      ''
+    ).trim().toUpperCase();
+    if (boundTokenId && boundTokenId !== tokenId) {
+      return res.status(403).json({ success: false, reason: 'token_mismatch' });
+    }
+
     const claim = verifyTokenClaim(body.claim, tokenId);
     if (!claim.valid) return res.status(403).json({ success: false, reason: claim.reason });
 
