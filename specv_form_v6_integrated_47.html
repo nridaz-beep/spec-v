@@ -2583,7 +2583,20 @@ async function runSecondAnalysis(){
       </div>
     `:'';
 
-    // パース失敗チェック（全タグ空なら再試行促す）
+    // 必須6タグが揃わない場合は、不完全な二次分析を正常結果として表示しない
+    const requiredDeepTags=['INSIGHT_1','INSIGHT_2','INSIGHT_3','ACTION_DO','ACTION_STOP','ACTION_ENV'];
+    const missingDeepTags=requiredDeepTags.filter(tag=>!sec[tag]);
+    if(missingDeepTags.length){
+      console.warn('[Spec-V] 二次分析タグ不足:',missingDeepTags.join(','));
+      document.getElementById('secondAnalysisLoading').style.display='none';
+      document.getElementById('secondAnalysisBlocks').innerHTML='<div style="text-align:center;padding:24px;color:var(--warn);">分析の出力が不完全でした。もう一度お試しください。</div>';
+      document.getElementById('secondAnalysisBlocks').style.display='block';
+      btn.textContent=SECOND_ANALYSIS_CTA.button;
+      btn.disabled=false;btn.style.opacity='1';
+      return;
+    }
+
+    // パース失敗チェック
     const hasAny=sec['INSIGHT_1']||sec['INSIGHT_2']||sec['INSIGHT_3'];
     if(!hasAny){
       document.getElementById('secondAnalysisLoading').style.display='none';
@@ -3039,7 +3052,18 @@ async function callAI(scores,ti,compi){
   const primaryKish=kishOrder.slice().sort((a,b)=>(kishPct[b]||0)-(kishPct[a]||0)).slice(0,2).join(' × ');
   const primaryMode=modeOrder.slice().sort((a,b)=>(modePct[b]||0)-(modePct[a]||0))[0];
   const stressMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-  const stressLabel=stressMap[primaryMode]||'';
+  // 正式なストレス反応は、平常時モードの首位ではなく消極面スコアで判定する
+  const stressScores={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};
+  questions.forEach((q,i)=>{
+    if(!q.sub||!q.sub.includes('消極'))return;
+    let v=answers[i];if(q.reverse)v=8-v;
+    if(q.sub==='牽引モード消極')stressScores['牽引モード']=v;
+    else if(q.sub==='実務モード消極')stressScores['実務モード']=v;
+    else if(q.sub==='支援モード消極')stressScores['支援モード']=v;
+    else if(q.sub==='発想モード消極')stressScores['発想モード']=v;
+  });
+  const topStress=Object.entries(stressScores).sort((a,b)=>b[1]-a[1])[0][0];
+  const stressLabel=stressMap[topStress]||'';
 
   // σ補正：回答スタイル分析
   const sigma=calcPersonalSigma(answers);
@@ -3087,6 +3111,7 @@ async function callAI(scores,ti,compi){
 性向：${primaryKish}（${kishText}）
 モード：${primaryMode}（${modeText}）
 ストレス反応：${stressLabel}
+正式なストレス反応として「${stressLabel}」を本文中に1回以上明示し、別のストレス反応名は記載しない。
 16項目詳細：${ct}
 
 ${PB[purpose]||PB.self}${styleContext}`;
