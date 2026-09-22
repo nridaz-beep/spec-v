@@ -1587,7 +1587,10 @@ function openPrintPage(){
       <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:12px;background:#1a1714;">
         <div style="font-family:'Syne',sans-serif;font-size:6.5px;letter-spacing:.3em;color:#c8a96e;text-transform:uppercase;margin-bottom:2px;">Level</div>
         <div style="font-size:46px;font-weight:700;color:${tcol};line-height:1;">${ti.lv}</div>
-        <div style="font-size:7px;color:#c8a96e;margin-top:2px;text-align:center;">${ti.lvN||''}</div>
+        <div style="font-size:7px;color:#c8a96e;margin-top:2px;text-align:center;">${ti.lvN||''}</div>      <div id="aiBlocks"><div style="text-align:center;padding:40px;color:var(--text-muted);">AI分析を読み込み中...</div></div>
+      <div id="basicReportNotice" style="margin-top:18px;padding:14px 16px;background:rgba(80,128,192,0.06);border:1px solid rgba(80,128,192,0.24);border-radius:8px;color:var(--text-sub);font-size:12px;line-height:1.9;">
+        以下は現在の診断結果から考えられる行動の選択肢です。すでに実践している内容が含まれる場合は、無理に取り組む必要はありません。
+      </div><p class="deep-cta-lead" id="secondAnalysisLead">深掘りは全員必須ではありません。もう一段、状況を整理したい人のための任意ステップです。</p>管理職・キーパーソン・役割変更の前後など、対話を深めたい場面で利用してください。今の状況・気になること・言葉にしきれていない違和感を自由に書くと、AIがスコアと組み合わせて次に見るべき輪郭を返します。
       </div>
     </div>
     ${sec('Six Axes — 6軸スコア')}
