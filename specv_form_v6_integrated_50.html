@@ -1669,8 +1669,8 @@ function openPrintPage(){
         <div style="font-size:7px;letter-spacing:.25em;color:#c8a96e;text-transform:uppercase;margin-bottom:7px;">▼ 谷（伸びしろの読み解き）</div>
         <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const b=bottomCompPdf[0]||bot2[0];return `${bottomCompPdf.map(d=>d.label).join('・')}（${b?.score||'—'}）は全体の中で相対的に低く出ている領域です。5点前後であれば弱点や人格評価ではなく、全体との比較で見える現在の谷として扱います。`;})()}</p>
       </div>
-    </div>``
-    };
+    </div>`
+    }
     <div style="background:#1a1714;border-radius:4px;padding:14px 18px;display:flex;gap:14px;align-items:flex-start;">
       <div style="flex-shrink:0;"><div style="font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.4em;color:#c8a96e;text-transform:uppercase;margin-bottom:3px;">AI Summary</div><div style="width:32px;height:1px;background:rgba(200,169,110,0.4);margin-top:4px;"></div></div>
       <div style="font-size:11px;color:#e8e0cc;line-height:1.9;font-style:italic;">${summaryTxt||'AIコメントを取得してから印刷してください。'}</div>
