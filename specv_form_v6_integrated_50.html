@@ -1549,6 +1549,14 @@ function openPrintPage(){
   const top2=selectByBoundary(compi,'score',false,2);
   const bot2=selectByBoundary(compi,'score',true,2);
   const allCompiEqual=compi.length>0 && compi.every(d=>d.score===compi[0].score);
+  const peakPdfLabel=topCompPdf.map(d=>d.label).join('・');
+  const peakPdfScore=topCompPdf[0]?.score||top2[0]?.score||'—';
+  const peakPdfMeaning=topCompPdf[0]?.group==='tamashii'?'使命感・ビジョンを描き周囲を動かす力':topCompPdf[0]?.group==='ai'?'人への貢献と信頼構築の力':topCompPdf[0]?.group==='anzen'?'組織の安全・誠実さへの貢献':'高い推進力';
+  const valleyPdfLabel=bottomCompPdf.map(d=>d.label).join('・');
+  const valleyPdfScore=bottomCompPdf[0]?.score||bot2[0]?.score||'—';
+  const pdfPeakValleyHtml=allCompiEqual
+    ? '<div style="background:#f8f6ef;border:1px solid #d8c8a0;border-radius:4px;padding:14px 16px;margin-bottom:16px;"><div style="font-size:7px;letter-spacing:.25em;color:#8a6a28;text-transform:uppercase;margin-bottom:7px;">均質状態</div><p style="font-size:10.5px;color:#444;line-height:1.9;">16項目がすべて同点で、全体として均質な状態です。特定の突出した強みや、相対的に低い項目は明確ではありません。</p></div>'
+    : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;"><div style="background:#f0faf4;border-left:4px solid #3a8a5a;border-radius:0 4px 4px 0;padding:12px 14px;"><div style="font-size:7px;letter-spacing:.25em;color:#3a8a5a;text-transform:uppercase;margin-bottom:7px;">▲ 山（強みの読み解き）</div><p style="font-size:10.5px;color:#444;line-height:1.9;">${peakPdfLabel}（${peakPdfScore}）は現在の最高群です。${peakPdfMeaning}として表れている可能性があります。</p></div><div style="background:#fdf8ee;border-left:4px solid #c8a96e;border-radius:0 4px 4px 0;padding:12px 14px;"><div style="font-size:7px;letter-spacing:.25em;color:#c8a96e;text-transform:uppercase;margin-bottom:7px;">▼ 谷（伸びしろの読み解き）</div><p style="font-size:10.5px;color:#444;line-height:1.9;">${valleyPdfLabel}（${valleyPdfScore}）は全体の中で相対的に低く出ている領域です。5点前後であれば弱点や人格評価ではなく、全体との比較で見える現在の谷として扱います。</p></div></div>`;
 
   // AI取得（直接変数から）
   const ALB={hire:{tags:['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT'],lbls:['現在の状態から見える特徴','活かせる可能性','追加確認事項','面接質問','入社後の環境・支援']},grow:{tags:['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL'],lbls:['現在地','成長の鍵','育成の注意点','最も力が出る環境','育成方針の総括']},self:{tags:['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'],lbls:['今の状態','本来の力','自覚を促したい点','次に意識すること','統合所見']}};
@@ -1658,19 +1666,7 @@ function openPrintPage(){
       </div>
     </div>
     ${sec('Peak &amp; Valley Analysis — 山谷分析')}
-    ${allCompiEqual
-      ? `<div style="background:#f8f6ef;border:1px solid #d8c8a0;border-radius:4px;padding:14px 16px;margin-bottom:16px;"><div style="font-size:7px;letter-spacing:.25em;color:#8a6a28;text-transform:uppercase;margin-bottom:7px;">均質状態</div><p style="font-size:10.5px;color:#444;line-height:1.9;">16項目がすべて同点で、全体として均質な状態です。特定の突出した強みや、相対的に低い項目は明確ではありません。</p></div>`
-      : `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;">
-      <div style="background:#f0faf4;border-left:4px solid #3a8a5a;border-radius:0 4px 4px 0;padding:12px 14px;">
-        <div style="font-size:7px;letter-spacing:.25em;color:#3a8a5a;text-transform:uppercase;margin-bottom:7px;">▲ 山（強みの読み解き）</div>
-        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const t=topCompPdf[0]||top2[0];return `${topCompPdf.map(d=>d.label).join('・')}（${t?.score||'—'}）は現在の最高群です。${t?.group==='tamashii'?'使命感・ビジョンを描き周囲を動かす力':t?.group==='ai'?'人への貢献と信頼構築の力':t?.group==='anzen'?'組織の安全・誠実さへの貢献':'高い推進力'}として表れている可能性があります。`;})()}</p>
-      </div>
-      <div style="background:#fdf8ee;border-left:4px solid #c8a96e;border-radius:0 4px 4px 0;padding:12px 14px;">
-        <div style="font-size:7px;letter-spacing:.25em;color:#c8a96e;text-transform:uppercase;margin-bottom:7px;">▼ 谷（伸びしろの読み解き）</div>
-        <p style="font-size:10.5px;color:#444;line-height:1.9;">${(()=>{const b=bottomCompPdf[0]||bot2[0];return `${bottomCompPdf.map(d=>d.label).join('・')}（${b?.score||'—'}）は全体の中で相対的に低く出ている領域です。5点前後であれば弱点や人格評価ではなく、全体との比較で見える現在の谷として扱います。`;})()}</p>
-      </div>
-    </div>`
-    }
+    ${pdfPeakValleyHtml}
     <div style="background:#1a1714;border-radius:4px;padding:14px 18px;display:flex;gap:14px;align-items:flex-start;">
       <div style="flex-shrink:0;"><div style="font-family:'Syne',sans-serif;font-size:7px;letter-spacing:.4em;color:#c8a96e;text-transform:uppercase;margin-bottom:3px;">AI Summary</div><div style="width:32px;height:1px;background:rgba(200,169,110,0.4);margin-top:4px;"></div></div>
       <div style="font-size:11px;color:#e8e0cc;line-height:1.9;font-style:italic;">${summaryTxt||'AIコメントを取得してから印刷してください。'}</div>
