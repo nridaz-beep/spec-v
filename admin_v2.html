@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<title>Spec-V 管理画面</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;700&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #091321;
+    --surface: #111f32;
+    --border: #2b3c51;
+    --gold: #ddbd83;
+    --gold-dim: #8f7650;
+    --text: #edf2f8;
+    --muted: #a0b0c4;
+    --free: #3a8a5a;
+    --paid: #b8943a;
+    --used: #444;
+    --danger: #b03838;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 40px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo {
+    font-family: 'DM Mono', monospace;
+    font-size: 20px;
+    letter-spacing: 0.15em;
+    color: var(--gold);
+  }
+
+  .logo span { color: var(--muted); font-size: 12px; margin-left: 8px; }
+
+  /* Stats */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px 20px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .stat-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  .stat-value.free { color: var(--free); }
+  .stat-value.paid { color: var(--paid); }
+
+  /* Actions */
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    letter-spacing: 0.08em;
+    padding: 10px 20px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-free {
+    background: var(--free);
+    color: #fff;
+  }
+  .btn-free:hover { background: #4aaa6a; }
+
+  .btn-paid {
+    background: var(--gold);
+    color: #000;
+  }
+  .btn-paid:hover { background: #d4a84a; }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-outline:hover { border-color: var(--gold); color: var(--gold); }
+
+  .search-box {
+    margin-left: auto;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 9px 14px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    width: 220px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-box:focus { border-color: var(--gold-dim); }
+  .search-box::placeholder { color: var(--muted); }
+
+  /* Filter tabs */
+  .filter-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 20px;
+  }
+
+  .tab {
+    font-size: 12px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'DM Mono', monospace;
+  }
+  .tab.active { background: var(--gold); color: #000; border-color: var(--gold); }
+  .tab:hover:not(.active) { border-color: var(--gold-dim); color: var(--text); }
+
+  /* Table */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 18px 0 32px;
+  }
+
+  .page-btn {
+    min-width: 38px;
+    height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+  }
+  .page-btn:hover { border-color: var(--gold-dim); color: var(--text); }
+  .page-btn.active { background: var(--gold); border-color: var(--gold); color: #091321; }
+  .page-summary { width: 100%; text-align: center; color: var(--muted); font-size: 11px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  thead th {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 12px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+  }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+
+  td {
+    padding: 13px 16px;
+    font-size: 13px;
+  }
+
+  .token-id {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .token-id.free { color: var(--free); }
+  .token-id.paid { color: var(--paid); }
+
+  .badge {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+  }
+
+  .badge-unused { background: rgba(120,120,120,0.12); color: #999; border: 1px solid #444; }
+  .badge-pending { background: rgba(184,148,58,0.14); color: #d4a84a; border: 1px solid rgba(184,148,58,0.45); }
+  .badge-used { background: rgba(58,138,90,0.15); color: #4aaa6a; border: 1px solid rgba(58,138,90,0.45); }
+
+  .status-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 190px;
+  }
+
+  .status-select {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 11px;
+    padding: 5px 24px 5px 8px;
+    outline: none;
+  }
+  .status-select:focus { border-color: var(--gold-dim); }
+  .status-select:disabled { cursor: wait; opacity: 0.55; }
+
+  .url-cell {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .copy-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+  .copy-btn.copied { border-color: var(--free); color: var(--free); }
+
+  .note-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: var(--muted);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    width: 160px;
+    padding: 2px 4px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .note-input:focus { border-bottom-color: var(--gold-dim); color: var(--text); }
+
+  /* Modal */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    width: 420px;
+    max-width: 90vw;
+  }
+
+  .modal h3 {
+    font-size: 16px;
+    margin-bottom: 6px;
+    color: var(--gold);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .modal p {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 24px;
+    line-height: 1.6;
+  }
+
+  .new-token-display {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+    margin-bottom: 20px;
+  }
+
+  .new-token-id {
+    font-family: 'DM Mono', monospace;
+    font-size: 32px;
+    font-weight: 500;
+    margin-bottom: 8px;
+  }
+
+  .new-token-url {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    word-break: break-all;
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+  }
+
+  .note-field {
+    margin-bottom: 20px;
+  }
+
+  .note-field label {
+    display: block;
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .note-field input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 13px;
+    outline: none;
+  }
+  .note-field input:focus { border-color: var(--gold-dim); }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--gold-dim);
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--gold);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.3s;
+    z-index: 200;
+  }
+  .toast.show { transform: translateY(0); opacity: 1; }
+
+  .auth-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: radial-gradient(circle at top, rgba(184,148,58,0.14), transparent 36%), rgba(13,13,15,0.96);
+  }
+  .auth-card {
+    width: min(420px, 100%);
+    background: var(--surface);
+    border: 1px solid rgba(184,148,58,0.32);
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.35);
+  }
+  .auth-card h1 {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    letter-spacing: 0.14em;
+    color: var(--gold);
+    margin-bottom: 8px;
+  }
+  .auth-card p { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 18px; }
+  .auth-input {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 13px 14px;
+    color: var(--text);
+    font-size: 16px;
+    outline: none;
+    margin-bottom: 12px;
+  }
+  .auth-input:focus { border-color: var(--gold); }
+  .auth-error { min-height: 18px; color: var(--danger); font-size: 12px; margin-top: 10px; }
+  .admin-shell.locked { display: none; }
+
+  .department-panel {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 10px;
+    align-items: end;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 24px;
+  }
+  .department-field label { display:block; color:var(--muted); font-size:10px; margin-bottom:6px; letter-spacing:.08em; }
+  .department-field input, .department-field select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:6px; color:var(--text); padding:10px 12px; font:13px 'Noto Sans JP',sans-serif; }
+  .department-field input:focus, .department-field select:focus { outline:none; border-color:var(--gold-dim); }
+  .department-list { grid-column:1 / -1; color:var(--muted); font-size:12px; line-height:1.7; }
+  .map-access-panel { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:24px; }
+  .map-access-panel .map-key { grid-column:1 / -1; min-height:20px; color:var(--gold); font:12px 'DM Mono',monospace; overflow-wrap:anywhere; }
+
+  @media (max-width: 768px) {
+    body { padding: 18px 14px 28px; }
+    header { flex-direction: column; align-items: flex-start; gap: 8px; margin-bottom: 24px; }
+    .logo { font-size: 18px; }
+    .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 22px; }
+    .stat-card { padding: 13px 14px; }
+    .stat-value { font-size: 24px; }
+    .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .actions .btn { justify-content: center; width: 100%; padding: 12px 10px; font-size: 12px; }
+    .actions .btn-outline { grid-column: span 2; }
+    .search-box { grid-column: span 2; width: 100%; margin-left: 0; padding: 12px 14px; font-size: 14px; }
+    .filter-tabs { overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+    .tab { flex: 0 0 auto; padding: 8px 13px; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 8px; }
+    table { min-width: 760px; }
+    thead th, td { padding: 11px 12px; }
+    .url-cell { max-width: 220px; }
+    .status-control { min-width: 178px; }
+    .note-input { width: 140px; }
+    .modal { width: calc(100vw - 28px); max-width: none; padding: 24px 20px; }
+    .modal-actions { flex-direction: column; }
+    .modal-actions .btn { width: 100%; justify-content: center; }
+    .new-token-id { font-size: 28px; }
+    .toast { left: 14px; right: 14px; bottom: 14px; text-align: center; }
+    .department-panel { grid-template-columns: 1fr 1fr; }
+    .department-panel .btn { grid-column: 1 / -1; justify-content:center; }
+    .map-access-panel { grid-template-columns:1fr; }
+  }
+
+  @media (max-width: 430px) {
+    .stats { grid-template-columns: 1fr 1fr; }
+    .stat-label { font-size: 10px; }
+    .actions { grid-template-columns: 1fr; }
+    .actions .btn-outline, .search-box { grid-column: auto; }
+  }
+
+  /* Responsive administration layout v2 */
+  .btn, .tab, .copy-btn, .page-btn, .status-select { min-height: 42px; }
+  .btn:focus-visible, .tab:focus-visible, .copy-btn:focus-visible,
+  .page-btn:focus-visible, .status-select:focus-visible,
+  .search-box:focus-visible, .note-input:focus-visible,
+  .department-field input:focus-visible, .department-field select:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 2px;
+  }
+  .url-cell { overflow-wrap: anywhere; }
+  .department-list { overflow-wrap: anywhere; }
+
+  @media (min-width: 769px) and (max-width: 1100px) {
+    body { padding: 24px 20px 36px; }
+    header { margin-bottom: 28px; }
+    .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    .stat-card { padding: 14px; }
+    .stat-value { font-size: 24px; }
+    .actions { gap: 10px; }
+    .search-box { width: min(260px, 32vw); }
+    .department-panel { grid-template-columns: 1fr 1fr; }
+    .department-panel > .btn { grid-column: 1 / -1; justify-content: center; }
+    .map-access-panel { grid-template-columns: 1fr auto; }
+    .table-wrap { overflow: visible; }
+    table { table-layout: fixed; }
+    thead th, td { padding: 10px 10px; }
+    thead th:nth-child(1), tbody td:nth-child(1) { width: 12%; }
+    thead th:nth-child(2), tbody td:nth-child(2) { width: 22%; }
+    thead th:nth-child(3), tbody td:nth-child(3) { width: 24%; }
+    thead th:nth-child(4), tbody td:nth-child(4),
+    thead th:nth-child(5), tbody td:nth-child(5) { width: 13%; }
+    thead th:nth-child(6), tbody td:nth-child(6) { width: 11%; }
+    thead th:nth-child(7), tbody td:nth-child(7) { width: 10%; }
+    .status-control { min-width: 0; flex-wrap: wrap; }
+    .status-select { max-width: 100%; }
+    .url-cell { display: block; max-width: none; white-space: normal; word-break: break-all; }
+    .note-input { width: 100%; min-width: 0; }
+    .copy-btn { white-space: nowrap; padding-inline: 8px; }
+    .modal { max-height: calc(100dvh - 32px); overflow-y: auto; }
+  }
+
+  @media (max-width: 768px) {
+    body { padding: 16px 12px 28px; }
+    .actions { width: 100%; }
+    .actions .btn { min-height: 46px; }
+    .search-box { min-height: 46px; }
+    .filter-tabs { max-width: 100%; overflow-x: auto; scrollbar-width: thin; }
+    .table-wrap { overflow: visible; background: transparent; border: 0; }
+    table, tbody { display: block; width: 100%; }
+    thead { display: none; }
+    tbody { display: grid; gap: 12px; }
+    tbody tr {
+      display: grid; grid-template-columns: minmax(0, 1fr); gap: 0;
+      padding: 10px 12px; background: var(--surface);
+      border: 1px solid var(--border); border-radius: 10px;
+    }
+    tbody tr:last-child { border-bottom: 1px solid var(--border); }
+    tbody tr:hover { background: var(--surface); }
+    tbody td {
+      display: grid; grid-template-columns: minmax(5.2rem, 6.2rem) minmax(0, 1fr);
+      align-items: center; gap: 10px; min-width: 0; padding: 9px 0;
+      border-bottom: 1px solid rgba(43,60,81,.65); font-size: 13px;
+    }
+    tbody td:last-child { border-bottom: 0; }
+    tbody td::before {
+      color: var(--muted); font-family: 'DM Mono', monospace;
+      font-size: 10px; letter-spacing: .06em; text-transform: uppercase;
+    }
+    tbody td:nth-child(1)::before { content: 'ID'; }
+    tbody td:nth-child(2)::before { content: 'STATUS'; }
+    tbody td:nth-child(3)::before { content: 'URL'; }
+    tbody td:nth-child(4)::before { content: '発行日'; }
+    tbody td:nth-child(5)::before { content: '受診日'; }
+    tbody td:nth-child(6)::before { content: 'メモ'; }
+    tbody td:nth-child(7)::before { content: '操作'; }
+    .token-id { overflow-wrap: anywhere; }
+    .status-control { min-width: 0; flex-wrap: wrap; }
+    .status-select { width: 100%; max-width: 12rem; }
+    .url-cell { max-width: none; white-space: normal; word-break: break-all; overflow-wrap: anywhere; }
+    .note-input { width: 100%; min-width: 0; min-height: 38px; }
+    .copy-btn { min-width: 110px; }
+    .modal-overlay { padding: 12px; overflow-y: auto; align-items: flex-start; }
+    .modal { width: min(100%, 480px); max-height: calc(100dvh - 24px); margin: auto; overflow-y: auto; padding: 22px 16px; }
+    .modal-actions .btn { min-height: 48px; }
+    .new-token-id { font-size: clamp(24px, 8vw, 30px); overflow-wrap: anywhere; }
+    .department-panel, .map-access-panel { gap: 12px; padding: 14px; }
+    .department-list { max-height: 7rem; overflow-y: auto; }
+    .pagination { margin-bottom: 24px; }
+  }
+
+  @media (max-width: 430px) {
+    .logo span { display: block; margin: 4px 0 0; }
+    .stat-card { padding: 12px; }
+    .stat-value { font-size: 22px; }
+    .actions .btn { font-size: 11px; }
+    tbody td { grid-template-columns: 4.8rem minmax(0, 1fr); gap: 8px; }
+    .filter-tabs { margin-inline: -2px; }
+  }
+</style>
+<link rel="stylesheet" href="admin-deep-report.css">
+</head>
+<body>
+
+<div class="auth-overlay" id="authOverlay">
+  <form class="auth-card" id="authForm">
+    <h1>SPEC-V ADMIN</h1>
+    <p>管理画面を開くためのパスワードを入力してください。認証後、このブラウザのタブ内だけ有効になります。</p>
+    <input class="auth-input" id="adminPasswordInput" type="password" autocomplete="current-password" placeholder="管理パスワード">
+    <button class="btn btn-paid" id="adminLoginButton" type="submit" style="width:100%;justify-content:center;padding:12px 16px;">ログイン</button>
+    <div class="auth-error" id="authError"></div>
+  </form>
+</div>
+
+<div class="admin-shell locked" id="adminShell">
+<header>
+  <div class="logo">SPEC-V <span>/ ADMIN</span></div>
+  <div style="font-family:'DM Mono',monospace;font-size:11px;color:var(--muted)" id="dateDisplay"></div>
+</header>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-label">Total Issued</div>
+    <div class="stat-value" id="statTotal">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Free (F)</div>
+    <div class="stat-value free" id="statFree">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Paid (P)</div>
+    <div class="stat-value paid" id="statPaid">0</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Completed</div>
+    <div class="stat-value" id="statUsed">0</div>
+  </div>
+</div>
+
+<!-- Actions -->
+<div class="actions">
+  <button class="btn btn-free" onclick="openIssueModal('free')">
+    ＋ FREE 発行
+  </button>
+  <button class="btn btn-outline" onclick="exportCSV()">
+    ↓ CSV出力
+  </button>
+  <input class="search-box" type="text" placeholder="検索（ID・メモ）" oninput="filterTokens(this.value)">
+</div>
+
+<section class="department-panel" aria-labelledby="departmentTitle">
+  <div class="department-field">
+    <label id="departmentTitle" for="orgInput">組織ID（UUID）</label>
+    <input id="orgInput" type="text" placeholder="organizations.id を入力">
+  </div>
+  <div class="department-field">
+    <label for="departmentNameInput">部署名</label>
+    <input id="departmentNameInput" type="text" placeholder="例：営業部">
+  </div>
+  <div class="department-field">
+    <label for="departmentTargetInput">対象人数</label>
+    <input id="departmentTargetInput" type="number" min="0" step="1" value="0">
+  </div>
+  <button class="btn btn-outline" type="button" onclick="registerDepartment()">部署を登録</button>
+  <div class="department-list" id="departmentList">登録済み部署を読み込み中…</div>
+</section>
+
+<section class="map-access-panel" aria-labelledby="mapAccessTitle">
+  <div class="department-field">
+    <label id="mapAccessTitle" for="mapOrgInput">組織マップ用 組織ID（UUID）</label>
+    <input id="mapOrgInput" type="text" placeholder="organizations.id を入力">
+  </div>
+  <button class="btn btn-paid" type="button" onclick="issueOrganizationMapAccessKey()">アクセスキーを発行</button>
+  <div class="map-key" id="mapAccessKey">発行したキーは組織担当者へ一度だけ共有してください。</div>
+</section>
+
+<!-- Filter tabs -->
+<div class="filter-tabs">
+  <button class="tab active" onclick="setFilter('all', this)">ALL</button>
+  <button class="tab" onclick="setFilter('free', this)">FREE</button>
+  <button class="tab" onclick="setFilter('paid', this)">PAID</button>
+  <button class="tab" onclick="setFilter('unused', this)">未使用</button>
+  <!-- 旧pendingは未使用として統合表示 -->
+  <button class="tab" onclick="setFilter('used', this)">受診済</button>
+</div>
+
+<!-- Table -->
+<div class="table-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>ステータス</th>
+        <th>URL</th>
+        <th>発行日</th>
+        <th>受診日</th>
+        <th>メモ</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tokenTable"></tbody>
+  </table>
+</div>
+<nav class="pagination" id="tokenPagination" aria-label="トークン一覧のページ"></nav>
+
+<!-- Issue Modal -->
+<div class="modal-overlay" id="issueModal">
+  <div class="modal">
+    <h3 id="modalTitle">FREE トークン発行</h3>
+    <p id="modalDesc">無料デモ用トークンを発行します。<br>発行後、URLをコピーして津田くんに送ってください。</p>
+
+    <div class="new-token-display">
+      <div class="new-token-id" id="newTokenId" style="color:var(--free)">F001</div>
+      <div class="new-token-url" id="newTokenUrl"></div>
+    </div>
+
+    <div class="note-field">
+      <label for="issueQuantity">発行数（1〜20）</label>
+      <input type="number" id="issueQuantity" min="1" max="20" value="1" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
+    </div>
+
+    <div class="note-field">
+      <label>メモ（例：津田→山田社長）</label>
+      <input type="text" id="noteInput" placeholder="誰に渡すか入力">
+    </div>
+
+    <div class="note-field">
+      <label for="departmentSelect">部署（任意）</label>
+      <select id="departmentSelect" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
+        <option value="">部署を指定しない</option>
+      </select>
+    </div>
+    <div class="note-field">
+      <label for="announcedAtInput">告知日・期限（任意）</label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <input type="date" id="announcedAtInput" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
+        <input type="date" id="deadlineInput" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 14px;color:var(--text);font-size:13px;">
+      </div>
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn btn-free" id="issueConfirmBtn" onclick="issueToken()">発行してURLコピー</button>
+      <button class="btn btn-outline" onclick="closeModal()">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+</div>
+
+<script>
+// ============================================================
+// データストア
+// ============================================================
+const ADMIN_TOKENS_API = '/api/admin-tokens';
+const ADMIN_PASSWORD_KEY = 'specv_admin_password';
+const BASE_URL_FREE = 'https://spec-v.vercel.app/main.html';
+const BASE_URL_PAID = 'https://spec-v.vercel.app/main.html';
+const STATUS_META = Object.freeze({
+  unused: Object.freeze({ label: '未使用', badgeClass: 'badge-unused' }),
+  used: Object.freeze({ label: '受診済', badgeClass: 'badge-used' })
+});
+
+let tokens = [];
+let currentFilter = 'all';
+let currentSearch = '';
+const TOKENS_PER_PAGE = 50;
+let currentPage = 1;
+let pendingType = 'free';
+let departments = [];
+const ADMIN_DEPARTMENTS_API = '/api/admin-departments';
+const ADMIN_ORG_MAP_ACCESS_API = '/api/admin-organization-map-access';
+let adminAuthInFlight = false;
+
+// ============================================================
+// 初期化
+// ============================================================
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('dateDisplay').textContent =
+    new Date().toLocaleDateString('ja-JP', { year:'numeric', month:'2-digit', day:'2-digit' });
+
+  document.getElementById('authForm').addEventListener('submit', handleAdminLogin);
+  const savedPassword = sessionStorage.getItem(ADMIN_PASSWORD_KEY);
+  if (savedPassword) unlockAdmin(savedPassword);
+});
+
+async function handleAdminLogin(event) {
+  event.preventDefault();
+  if (adminAuthInFlight) return;
+  const input = document.getElementById('adminPasswordInput');
+  const error = document.getElementById('authError');
+  const password = input.value.trim();
+  if (!password) {
+    error.textContent = 'パスワードを入力してください';
+    input.focus();
+    return;
+  }
+  error.textContent = '';
+  await unlockAdmin(password, true);
+}
+
+async function unlockAdmin(password, showErrors = false) {
+  if (adminAuthInFlight) return;
+  adminAuthInFlight = true;
+  setAuthBusy(true);
+  const error = document.getElementById('authError');
+  try {
+    await loadTokens(password);
+    // 部署一覧は補助機能。部署APIの不調で管理画面全体をロックしない。
+    try {
+      await loadDepartments(password);
+    } catch (departmentError) {
+      console.warn('[admin] departments unavailable; continuing without department data', departmentError);
+      departments = [];
+      renderDepartmentOptions();
+      const departmentList = document.getElementById('departmentList');
+      if (departmentList) departmentList.textContent = '部署一覧を取得できませんでした。トークン管理は利用できます。';
+    }
+    sessionStorage.setItem(ADMIN_PASSWORD_KEY, password);
+    document.getElementById('authOverlay').style.display = 'none';
+    document.getElementById('adminShell').classList.remove('locked');
+  } catch (err) {
+    console.error(err);
+    clearAdminPassword();
+    if (showErrors) error.textContent = err.message === 'unauthorized' ? 'パスワードが違います' : '管理APIに接続できませんでした';
+  } finally {
+    adminAuthInFlight = false;
+    setAuthBusy(false);
+  }
+}
+
+async function loadTokens(password) {
+  const data = await requestAdminTokens({ password });
+  tokens = Array.isArray(data.tokens) ? data.tokens : [];
+  renderTable();
+  updateStats();
+}
+
+async function loadDepartments(password) {
+  const data = await requestAdminDepartments({ password });
+  departments = Array.isArray(data.departments) ? data.departments : [];
+  renderDepartmentOptions();
+  document.getElementById('departmentList').textContent = departments.length
+    ? departments.map(d => `${d.org_id} / ${d.name}（対象${d.target_count}人）`).join('　')
+    : '登録済み部署はありません。';
+}
+
+function clearAdminPassword() {
+  sessionStorage.removeItem(ADMIN_PASSWORD_KEY);
+  document.getElementById('authOverlay').style.display = 'flex';
+  document.getElementById('adminShell').classList.add('locked');
+}
+
+function setAuthBusy(isBusy) {
+  const button = document.getElementById('adminLoginButton');
+  if (!button) return;
+  button.disabled = isBusy;
+  button.textContent = isBusy ? '認証中…' : 'ログイン';
+}
+
+function handleAdminUnauthorized() {
+  clearAdminPassword();
+  const error = document.getElementById('authError');
+  if (error) error.textContent = 'セッションの有効期限が切れました。再度ログインしてください';
+  const input = document.getElementById('adminPasswordInput');
+  if (input) input.focus();
+}
+
+function renderDepartmentOptions() {
+  const select = document.getElementById('departmentSelect');
+  if (!select) return;
+  select.innerHTML = '<option value="">部署を指定しない</option>' + departments.map(d => `<option value="${escapeHtml(d.id)}">${escapeHtml(d.org_id)} / ${escapeHtml(d.name)}</option>`).join('');
+}
+
+async function registerDepartment() {
+  const orgId = document.getElementById('orgInput').value.trim();
+  const name = document.getElementById('departmentNameInput').value.trim();
+  const targetCount = Number(document.getElementById('departmentTargetInput').value || 0);
+  if (!orgId || !name || !Number.isInteger(targetCount) || targetCount < 0) {
+    showToast('組織ID・部署名・対象人数を確認してください');
+    return;
+  }
+  try {
+    const data = await requestAdminDepartments({ method:'POST', body:{ org_id:orgId, name, target_count:targetCount } });
+    departments.push(data.department);
+    renderDepartmentOptions();
+    document.getElementById('departmentList').textContent = departments.map(d => `${d.org_id} / ${d.name}（対象${d.target_count}人）`).join('　');
+    document.getElementById('departmentNameInput').value = '';
+    document.getElementById('departmentTargetInput').value = '0';
+    showToast('部署を登録しました');
+  } catch (error) {
+    console.error(error);
+    showToast('部署を登録できませんでした');
+  }
+}
+
+async function issueOrganizationMapAccessKey() {
+  const orgId = document.getElementById('mapOrgInput').value.trim();
+  if (!orgId) {
+    showToast('組織IDを入力してください');
+    return;
+  }
+  try {
+    const data = await requestAdminOrganizationMapAccess({ method:'POST', body:{ org_id:orgId } });
+    const url = `${location.origin}/organization-map.html?org=${encodeURIComponent(orgId)}`;
+    document.getElementById('mapAccessKey').textContent = `URL: ${url}  /  アクセスキー: ${data.access_key}`;
+    showToast('組織マップのアクセスキーを発行しました');
+  } catch (error) {
+    console.error(error);
+    showToast('アクセスキーを発行できませんでした');
+  }
+}
+
+// ============================================================
+// テーブル描画
+// ============================================================
+function renderTable() {
+  const tbody = document.getElementById('tokenTable');
+  const filtered = tokens.filter(t => {
+    if (currentFilter === 'free'   && t.type !== 'free')     return false;
+    if (currentFilter === 'paid'   && t.type !== 'paid')     return false;
+    if (currentFilter === 'unused' && normalizeStatus(t.status) !== 'unused') return false;
+    if (currentFilter === 'used'   && t.status !== 'used')   return false;
+    if (currentSearch) {
+      const q = currentSearch.toLowerCase();
+      if (!t.id.toLowerCase().includes(q) && !t.note.toLowerCase().includes(q)) return false;
+    }
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    const prefixA = String(a.id || '').charAt(0).toUpperCase();
+    const prefixB = String(b.id || '').charAt(0).toUpperCase();
+    if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
+    return Number(String(b.id || '').slice(1)) - Number(String(a.id || '').slice(1));
+  });
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / TOKENS_PER_PAGE));
+  currentPage = Math.min(Math.max(currentPage, 1), totalPages);
+  const start = (currentPage - 1) * TOKENS_PER_PAGE;
+  const pageTokens = filtered.slice(start, start + TOKENS_PER_PAGE);
+
+  tbody.innerHTML = pageTokens.map(t => {
+    const url = t.type === 'free'
+      ? `${BASE_URL_FREE}?token=${t.id}`
+      : `${BASE_URL_PAID}?token=${t.id}`;
+    const typeClass = t.type === 'free' ? 'free' : 'paid';
+    const status = normalizeStatus(t.status);
+    const statusMeta = STATUS_META[status];
+    const badge = `<span class="badge ${statusMeta.badgeClass}" data-status="${status}">${statusMeta.label}</span>`;
+    const statusSelect = `
+      <select class="status-select" aria-label="${t.id}のステータス"
+        onchange="updateStatus('${t.id}', this.value, this)">
+        ${Object.entries(STATUS_META).map(([value, meta]) =>
+          `<option value="${value}"${status === value ? ' selected' : ''}>${meta.label}</option>`
+        ).join('')}
+      </select>`;
+
+    return `
+      <tr>
+        <td data-label="ID"><span class="token-id ${typeClass}">${t.id}</span></td>
+        <td data-label="ステータス"><div class="status-control">${badge}${statusSelect}</div></td>
+        <td data-label="URL"><span class="url-cell" title="${url}">${url}</span></td>
+        <td data-label="発行日" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">${t.issued_at || '—'}</td>
+        <td data-label="受診日" style="font-family:'DM Mono',monospace;font-size:12px;color:var(--muted)">—</td>
+        <td data-label="メモ">
+          <input class="note-input" value="${escapeHtml(t.note || '')}"
+            onchange="updateNote('${t.id}', this.value)"
+            placeholder="メモ追加">
+        </td>
+        <td data-label="操作">
+          <button class="copy-btn" onclick="copyUrl('${url}', this)">URLコピー</button>
+        </td>
+      </tr>`;
+  }).join('');
+  renderPagination(filtered.length, totalPages);
+}
+
+function renderPagination(totalItems, totalPages) {
+  const nav = document.getElementById('tokenPagination');
+  if (!nav) return;
+  if (totalItems === 0) {
+    nav.innerHTML = '<div class="page-summary">該当するトークンはありません</div>';
+    return;
+  }
+  const buttons = Array.from({ length: totalPages }, (_, index) => {
+    const page = index + 1;
+    return `<button type="button" class="page-btn${page === currentPage ? ' active' : ''}" ${page === currentPage ? 'aria-current="page"' : ''} onclick="goToPage(${page})">${page}</button>`;
+  }).join('');
+  const first = (currentPage - 1) * TOKENS_PER_PAGE + 1;
+  const last = Math.min(currentPage * TOKENS_PER_PAGE, totalItems);
+  nav.innerHTML = `${buttons}<div class="page-summary">${first}〜${last}件 / 全${totalItems}件　※1ページ目が最新、数字が大きいほど古い一覧です</div>`;
+}
+
+function goToPage(page) {
+  currentPage = page;
+  renderTable();
+  document.querySelector('.table-wrap')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ============================================================
+// Stats更新
+// ============================================================
+function updateStats() {
+  document.getElementById('statTotal').textContent = tokens.length;
+  document.getElementById('statFree').textContent  = tokens.filter(t => t.type === 'free').length;
+  document.getElementById('statPaid').textContent  = tokens.filter(t => t.type === 'paid').length;
+  document.getElementById('statUsed').textContent  = tokens.filter(t => t.status === 'used').length;
+}
+
+// ============================================================
+// トークン発行
+// ============================================================
+function openIssueModal(type) {
+  pendingType = type;
+  const nextId = getNextId(type);
+  const url = type === 'free'
+    ? `${BASE_URL_FREE}?token=${nextId}`
+    : `${BASE_URL_PAID}?token=${nextId}`;
+
+  document.getElementById('modalTitle').textContent  = type === 'free' ? 'FREE トークン発行' : 'PAID トークン発行';
+  document.getElementById('modalDesc').textContent   = type === 'free'
+    ? '無料デモ用トークンを発行します。\n発行後、URLをコピーして津田くんに送ってください。'
+    : '有料版トークンを発行します。（手動発行）';
+  document.getElementById('newTokenId').textContent  = nextId;
+  document.getElementById('newTokenId').style.color  = type === 'free' ? 'var(--free)' : 'var(--paid)';
+  document.getElementById('newTokenUrl').textContent = url;
+  document.getElementById('issueQuantity').value = '1';
+  document.getElementById('issueConfirmBtn').className = `btn btn-${type === 'free' ? 'free' : 'paid'}`;
+  document.getElementById('noteInput').value = '';
+  document.getElementById('issueModal').classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('issueModal').classList.remove('show');
+}
+
+async function issueToken() {
+  const quantity = Math.min(20, Math.max(1, Number(document.getElementById('issueQuantity').value) || 1));
+  const ids = getNextIds(pendingType, quantity);
+  const nextId = ids[0];
+  const note   = document.getElementById('noteInput').value;
+  const departmentId = document.getElementById('departmentSelect').value;
+  const department = departments.find(item => item.id === departmentId);
+  const announcedAt = document.getElementById('announcedAtInput').value;
+  const deadline = document.getElementById('deadlineInput').value;
+  const url    = pendingType === 'free'
+    ? `${BASE_URL_FREE}?token=${nextId}`
+    : `${BASE_URL_PAID}?token=${nextId}`;
+
+  try {
+    const data = await requestAdminTokens({
+      method: 'POST',
+      body: {
+        batch: ids.map(id => ({
+          id, type: pendingType, status: 'unused', issued_at: new Date().toISOString(), note,
+          org_id: department ? department.org_id : '', department_id: departmentId,
+          announced_at: announcedAt ? `${announcedAt}T00:00:00.000Z` : null,
+          deadline: deadline ? `${deadline}T23:59:59.999Z` : null,
+          announced_by: sessionStorage.getItem(ADMIN_PASSWORD_KEY) ? 'admin' : ''
+        }))
+      }
+    });
+
+    const issued = Array.isArray(data.tokens) ? data.tokens : [data.token];
+    tokens.push(...issued.filter(Boolean));
+    currentPage = 1;
+    renderTable();
+    updateStats();
+    closeModal();
+    const urls = issued.map(t => `${pendingType === 'free' ? BASE_URL_FREE : BASE_URL_PAID}?token=${t.id}`);
+    copyToClipboard(urls.join('\n'));
+    showToast(`${nextId}${issued.length > 1 ? ' ほか' + (issued.length - 1) + '件' : ''} 発行！URLをコピーしました`);
+  } catch (error) {
+    console.error(error);
+    showToast(`${nextId} を発行できませんでした`);
+  }
+}
+
+function getNextId(type) {
+  return getNextIds(type, 1)[0];
+}
+
+function getNextIds(type, count) {
+  const prefix = type === 'free' ? 'F' : 'P';
+  const existingNumbers = tokens
+    .filter(t => t.type === type && String(t.id || '').startsWith(prefix))
+    .map(t => Number(String(t.id).slice(1)))
+    .filter(Number.isFinite);
+  const start = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+  return Array.from({ length: count }, (_, index) => prefix + String(start + index).padStart(3, '0'));
+}
+
+// ============================================================
+// ユーティリティ
+// ============================================================
+function copyUrl(url, btn) {
+  copyToClipboard(url);
+  btn.textContent = 'コピー済！';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = 'URLコピー'; btn.classList.remove('copied'); }, 2000);
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+  });
+}
+
+async function updateNote(id, note) {
+  const t = tokens.find(x => x.id === id);
+  if (!t) return;
+
+  const previousNote = t.note;
+  t.note = note;
+
+  try {
+    const data = await requestAdminTokens({ method: 'PATCH', body: { id, note } });
+    Object.assign(t, data.token);
+    renderTable();
+    showToast('メモを保存しました');
+  } catch (error) {
+    console.error(error);
+    t.note = previousNote;
+    renderTable();
+    showToast('メモを保存できませんでした');
+  }
+}
+
+async function updateStatus(id, status, select) {
+  const token = tokens.find(t => t.id === id);
+  if (!token || !STATUS_META[status] || normalizeStatus(token.status) === status) return;
+
+  const previousStatus = token.status;
+  select.disabled = true;
+
+  try {
+    const data = await requestAdminTokens({ method: 'PATCH', body: { id, status } });
+    Object.assign(token, data.token);
+    renderTable();
+    updateStats();
+    showToast(`${id} を${getStatusLabel(status)}に変更しました`);
+  } catch (error) {
+    console.error(error);
+    token.status = previousStatus;
+    renderTable();
+    showToast(`${id} のステータスを変更できませんでした`);
+  }
+}
+
+function getStatusLabel(status) {
+  return STATUS_META[normalizeStatus(status)].label;
+}
+
+function normalizeStatus(status) {
+  if (status === 'pending') return 'unused';
+  return Object.prototype.hasOwnProperty.call(STATUS_META, status) ? status : 'unused';
+}
+
+function setFilter(f, el) {
+  currentFilter = f;
+  currentPage = 1;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderTable();
+}
+
+function filterTokens(q) {
+  currentSearch = q;
+  currentPage = 1;
+  renderTable();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+function exportCSV() {
+  const header = 'ID,タイプ,ステータス,発行日,受診日,メモ';
+  const rows = tokens.map(t =>
+    `${t.id},${t.type === 'free' ? 'FREE' : 'PAID'},${getStatusLabel(t.status)},${t.issued_at || ''},,${t.note || ''}`
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `specv_tokens_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+}
+
+async function requestAdminTokens(options = {}) {
+  const password = options.password || sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+  const headers = { 'x-admin-password': password };
+  if (options.body) headers['Content-Type'] = 'application/json';
+
+  const response = await fetch(ADMIN_TOKENS_API, {
+    method: options.method || 'GET',
+    headers,
+    body: options.body ? JSON.stringify(options.body) : undefined
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleAdminUnauthorized();
+      throw new Error('unauthorized');
+    }
+    throw new Error(data.error || `request_failed_${response.status}`);
+  }
+  return data;
+}
+
+async function requestAdminDepartments(options = {}) {
+  const password = options.password || sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+  const headers = { 'x-admin-password': password };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const response = await fetch(ADMIN_DEPARTMENTS_API, { method: options.method || 'GET', headers, body: options.body ? JSON.stringify(options.body) : undefined });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleAdminUnauthorized();
+      throw new Error('unauthorized');
+    }
+    throw new Error(data.error || `request_failed_${response.status}`);
+  }
+  return data;
+}
+
+async function requestAdminOrganizationMapAccess(options = {}) {
+  const password = sessionStorage.getItem(ADMIN_PASSWORD_KEY) || '';
+  const headers = { 'x-admin-password': password };
+  if (options.body) headers['Content-Type'] = 'application/json';
+  const response = await fetch(ADMIN_ORG_MAP_ACCESS_API, { method: options.method || 'GET', headers, body: options.body ? JSON.stringify(options.body) : undefined });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    if (response.status === 401) {
+      handleAdminUnauthorized();
+      throw new Error('unauthorized');
+    }
+    throw new Error(data.error || `request_failed_${response.status}`);
+  }
+  return data;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('"', '&quot;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;');
+}
+
+// モーダル外クリックで閉じる
+document.getElementById('issueModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+<script src="admin-deep-report.js"></script>
+</body>
+</html>
