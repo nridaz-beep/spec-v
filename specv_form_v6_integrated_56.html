@@ -1364,7 +1364,7 @@ const QUESTION_BANK = {
 // =============================
 // 状態管理
 // =============================
-let questions=[], answers=[], curIdx=0;
+let questions=[], answers=[], questionComments=[], curIdx=0;
 let uProfile={age:'',role:'',industry:'',job:''};
 let purpose='';
 let rChart=null, cChart=null;
@@ -1927,6 +1927,7 @@ function startDiag(){
     ...shuf(QUESTION_BANK.jiko_dokuritsu).slice(0,10).map(q=>({...q,axisKey:'jiko'})),
   ]);
   answers=questions.map(()=>4);
+  questionComments=questions.map(()=>'');
   curIdx=0;
   sh('scr-q');
   renderQ();
@@ -1949,8 +1950,14 @@ function renderQ(){
   const hint=document.getElementById('sliderHint');
   if(parseInt(answers[curIdx])===4){hint.textContent='4 = どちらとも言えない・場合による';hint.style.opacity='1';}
   else{hint.style.opacity='0';}
-  // コメント欄は設問ごとにリセット（将来的にコメント保存対応可）
-  const qc=document.getElementById('qComment');if(qc)qc.value='';
+  // 設問コメントは設問ごとに保持する。戻る操作でも復元する。
+  const qc=document.getElementById('qComment');
+  if(qc)qc.value=questionComments[curIdx]||'';
+}
+function saveCurrentQuestionComment(){
+  const qc=document.getElementById('qComment');
+  if(!qc || !questions[curIdx])return;
+  questionComments[curIdx]=String(qc.value||'').trim();
 }
 function updSlider(v){
   answers[curIdx]=parseInt(v);
@@ -1963,8 +1970,8 @@ function updSlider(v){
     hint.style.opacity='0';
   }
 }
-function prevQ(){if(curIdx>0){curIdx--;renderQ();}}
-function nextQ(){if(curIdx<questions.length-1){curIdx++;renderQ();}else{showTemporalQuestions();}}
+function prevQ(){saveCurrentQuestionComment();if(curIdx>0){curIdx--;renderQ();}}
+function nextQ(){saveCurrentQuestionComment();if(curIdx<questions.length-1){curIdx++;renderQ();}else{showTemporalQuestions();}}
 
 function showTemporalQuestions(){
   const t=document.getElementById('temporalTamashii');
@@ -2252,10 +2259,9 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   const uc = document.getElementById('userComment');
   if(uc) uc.value = '';
   setTimeout(()=>{ const u=document.getElementById('userComment'); if(u) u.value=''; }, 300);
-  // 1次コメント欄もクリア（autofill対策）
+  // 結果画面では設問コメント入力欄だけを空にする。保存済みquestionCommentsは保持する。
   const qc2 = document.getElementById('qComment');
   if(qc2) qc2.value = '';
-  setTimeout(()=>{ const q=document.getElementById('qComment'); if(q) q.value=''; }, 300);
   // =========================================
   window.addEventListener('popstate',function(){history.pushState(null,null,location.href);});
 
@@ -2887,6 +2893,10 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
       action_do:deepSec?.ACTION_DO||'',
       action_stop:deepSec?.ACTION_STOP||'',
       action_env:deepSec?.ACTION_ENV||'',
+      // 各設問で入力された任意コメント（空欄は除外）
+      question_comments:questionComments
+        .map((comment,index)=>String(comment||'').trim()?{question_no:index+1,comment:String(comment||'').trim()}:null)
+        .filter(Boolean),
     };
 
     // リトライ+キュー付き送信（失敗しても画面に影響なし）
@@ -3265,6 +3275,7 @@ async function callAI(scores,ti,compi){
 ストレス反応：${stressLabel}
 正式なストレス反応として「${stressLabel}」を本文中に1回以上明示し、別のストレス反応名は記載しない。
 16項目詳細：${ct}
+設問コメント：${questionComments.map((comment,i)=>comment?(`Q${i+1}: ${comment}`):'').filter(Boolean).join(' / ')||'なし'}
 
 ${PB[purpose]||PB.self}${styleContext}`;
 
