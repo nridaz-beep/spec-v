@@ -3128,7 +3128,9 @@ function showMaterialShortage(scope){
 
 function isThinUserComment(comment){
   const normalized=String(comment||'').replace(/[\s\u3000]/g,'').trim();
-  if(normalized.length<8)return true;
+  // 短い日本語でも意味のある入力（例:「しんどい」「がっつりいくで」）は分析対象にする。
+  // 空欄・1文字だけを材料不足として扱い、内容の薄さは重複率で判定する。
+  if(normalized.length<2)return true;
   const words=String(comment||'').toLowerCase().split(/[\s、。,.!?！？]+/).filter(Boolean);
   if(words.length>=3){
     const counts=words.reduce((map,word)=>{map[word]=(map[word]||0)+1;return map;},{});
