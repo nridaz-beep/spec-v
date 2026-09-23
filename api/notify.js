@@ -194,6 +194,11 @@ ${d.type_desc}
 高潔さ：${d.comp_kouketsu} / 感情制御：${d.comp_kanjou} / 任せる力：${d.comp_makaseru}
 攻撃性なさ：${d.comp_kougeki} / 心理的安全：${d.comp_shinri} / 多様性受容：${d.comp_tayousei}
 
+■ 設問コメント
+${Array.isArray(d.question_comments) && d.question_comments.length
+  ? d.question_comments.map(item => `Q${item.question_no}: ${item.comment}`).join('\n')
+  : '（なし）'}
+
 ■ 2次入力
 ${d.deep_input || '（なし）'}
 
