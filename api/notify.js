@@ -49,7 +49,7 @@ async function markTokenUsedWithRetry(tokenId, maxRetries = 3) {
     try {
       const { data, error } = await supabase
         .from('tokens')
-        .update({ status: 'used' })
+        .update({ status: 'used', used_at: new Date().toISOString() })
         .eq('id', String(tokenId).trim().toUpperCase())
         .in('status', ['unused', 'pending', 'used']) // 既にusedでも成功扱い
         .select('id, status')
