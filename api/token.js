@@ -71,7 +71,7 @@ module.exports = async function handler(req, res) {
 
     const { data, error } = await supabase
       .from('tokens')
-      .select('id, type, status')
+      .select('id, type, status, note')
       .eq('id', tokenId)
       .maybeSingle();
 
@@ -93,9 +93,17 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ valid: false, reason: 'invalid_status' });
     }
 
+    const note = String(data.note || '');
+    const testAllowed = /E2E_TEST|TEST_ONLY|TEST[ _-]*TOKEN|テスト|てすと/i.test(note);
     const claim = issueTokenClaim(data.id, data.type);
     if (!claim) return res.status(503).json({ valid: false, reason: 'claim_secret_missing' });
-    return res.status(200).json({ valid: true, token_id: data.id, type: data.type, claim });
+    return res.status(200).json({
+      valid: true,
+      token_id: data.id,
+      type: data.type,
+      claim,
+      test_allowed: testAllowed
+    });
   }
 
   // POST /api/token
