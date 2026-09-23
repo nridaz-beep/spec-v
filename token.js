@@ -62,7 +62,7 @@ module.exports = async function handler(req, res) {
 
     const { data, error } = await supabase
       .from('tokens')
-      .select('id, type, status')
+      .select('id, type, status, note')
       .eq('id', tokenId)
       .maybeSingle();
 
@@ -105,10 +105,13 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ valid: false, reason: 'expired' });
     }
 
+    const note = String(data.note || '');
+    const testAllowed = /E2E_TEST|TEST_ONLY|TEST[ _-]*TOKEN|テスト|てすと/i.test(note);
     return res.status(200).json({
       valid: true,
       token_id: data.id,
-      type: data.type
+      type: data.type,
+      test_allowed: testAllowed
     });
   }
 
