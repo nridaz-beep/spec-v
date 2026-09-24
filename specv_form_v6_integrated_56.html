@@ -2319,7 +2319,9 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   // 前回のコメントをクリア（autofill対策で二重クリア）
   const uc = document.getElementById('userComment');
   if(uc) uc.value = '';
-  setTimeout(()=>{ const u=document.getElementById('userComment'); if(u) u.value=''; }, 300);
+  // 表示後の遅延初期化は、直後に入力したコメントを消してしまう。
+  const userCommentInput=document.getElementById('userComment');
+  if(userCommentInput)userCommentInput.value='';
   // 結果画面では設問コメント入力欄だけを空にする。保存済みquestionCommentsは保持する。
   const qc2 = document.getElementById('qComment');
   if(qc2) qc2.value = '';

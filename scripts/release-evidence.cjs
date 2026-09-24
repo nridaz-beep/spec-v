@@ -9,7 +9,7 @@ const evidencePath = path.join(root, '.release-evidence.json');
 function digestFiles(dir = root, prefix = '') {
   const records = {};
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith('.') || ['node_modules','test-results','playwright-report','tmp'].includes(entry.name)) continue;
+    if (entry.name.startsWith('.env') || ['.git','.tools','.vercel','.release-evidence.json','node_modules','test-results','playwright-report','tmp'].includes(entry.name)) continue;
     const rel = prefix + entry.name;
     if (entry.isDirectory()) Object.assign(records, digestFiles(path.join(dir,entry.name), rel + '/'));
     else records[rel] = crypto.createHash('sha256').update(fs.readFileSync(path.join(dir,entry.name))).digest('hex');
@@ -21,14 +21,14 @@ function validateReport(report) {
   const tests = [];
   function walk(suite) { for (const spec of suite.specs || []) for (const test of spec.tests || []) tests.push({ spec, test }); for (const child of suite.suites || []) walk(child); }
   for (const suite of report.suites || []) walk(suite);
-  assert(tests.length >= 8, 'Missing regression cases');
+  assert(tests.length >= 10, 'Missing regression cases');
   assert.equal(report.stats.unexpected, 0); assert.equal(report.stats.skipped, 0); assert.equal(report.stats.flaky, 0);
   for (const { spec, test } of tests) {
     assert.equal(spec.ok, true); assert.equal(test.expectedStatus, 'passed'); assert.equal(test.status, 'expected');
     assert.equal(test.results.length, 1); assert.equal(test.results[0].status, 'passed');
   }
   // Prevent --grep/--shard or deleting an entire family from manufacturing evidence.
-  for (const phrase of ['81問','3回失敗','test=1','LATEST','claim','used_at','空本文']) assert(tests.some(x => x.spec.title.includes(phrase)), `Missing required case: ${phrase}`);
+  for (const phrase of ['81問','3回失敗','test=1','LATEST','claim','used_at','空本文','長文AI','再試行']) assert(tests.some(x => x.spec.title.includes(phrase)), `Missing required case: ${phrase}`);
   return tests.length;
 }
 function run(mode) {
@@ -45,7 +45,7 @@ function run(mode) {
   } else if (mode === 'verify') {
     const evidence = JSON.parse(fs.readFileSync(evidencePath));
     assert.equal(latest, policy.candidate, 'Normal promotion requires LATEST to point to the fully tested candidate; use deployment rollback for the old stable release');
-    assert.equal(evidence.candidate, latest); assert(evidence.count >= 8);
+    assert.equal(evidence.candidate, latest); assert(evidence.count >= 10);
     assert.equal(evidence.sha, process.env.GITHUB_SHA || process.env.VERCEL_GIT_COMMIT_SHA, 'Commit mismatch');
     assert.deepEqual(evidence.files, digestFiles(), 'Files changed after tests');
     console.log('[release] All deployed files match successful CI test evidence');
