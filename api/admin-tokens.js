@@ -116,8 +116,8 @@ module.exports = async function handler(req, res) {
 function isAuthorized(req) {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) {
-    console.warn('[admin-tokens] ADMIN_PASSWORD is not set; admin API is unprotected');
-    return true;
+    console.warn('[admin-tokens] ADMIN_PASSWORD is not set; access denied');
+    return false;
   }
   const provided = String(req.headers['x-admin-password'] || '').trim();
   return provided === expected;

@@ -1737,8 +1737,69 @@ function openPrintPage(){
   p2el.innerHTML=p2html;
   p3el.innerHTML=p3html;
 
+  // 固定A4枠で本文を切り捨てない。印刷と同じCSSで測り、AI本文を改ページする。
+  paginatePdfReport();
+
   // 印刷実行
   window.print();
+}
+
+function paginatePdfReport(){
+  document.querySelectorAll('#pdf-view [data-overflow-page]').forEach(el=>el.remove());
+  const source=document.getElementById('pdf-p3');
+  if(!source)return;
+  const printStyle=document.createElement('style');
+  const sheet=document.getElementById('specv-pdf-layout-fix').sheet;
+  printStyle.textContent=Array.from(sheet.cssRules).flatMap(rule=>rule.cssRules?Array.from(rule.cssRules).map(r=>r.cssText):[]).join('\n');
+  document.head.appendChild(printStyle);
+  try{
+    const head=source.querySelector('.pdf-head').cloneNode(true);
+    const foot=source.querySelector('.pdf-foot').cloneNode(true);
+    const gold=source.querySelector('.pdf-gold-bar').cloneNode(true);
+    const blocks=Array.from(source.children).filter(el=>!el.matches('.pdf-head,.pdf-foot,.pdf-gold-bar'));
+    // 一次分析を囲む枠を本文単位に分ける。文章そのものは保持する。
+    const chunks=blocks.flatMap(el=>{
+      const inner=el.querySelector(':scope > div > div > p');
+      return inner ? Array.from(inner.parentElement.parentElement.children) : [el];
+    });
+    source.replaceChildren(gold,head,foot);
+    let current=source;
+    function fits(){
+      const r=current.getBoundingClientRect();
+      return current.scrollHeight<=current.clientHeight+1 && current.lastElementChild.getBoundingClientRect().bottom<=r.bottom-parseFloat(getComputedStyle(current).paddingBottom)+1;
+    }
+    function nextPage(){
+      const page=document.createElement('div');page.className='pdf-page';page.dataset.overflowPage='true';
+      page.append(gold.cloneNode(true),head.cloneNode(true),foot.cloneNode(true));
+      document.getElementById('pdf-view').appendChild(page);current=page;
+    }
+    const queue=[...chunks];
+    while(queue.length){
+      const block=queue.shift();
+      current.insertBefore(block,current.lastElementChild);
+      if(fits())continue;
+      block.remove();
+      if(current.children.length>3){
+        const heading=current.lastElementChild.previousElementSibling;
+        if(heading.matches('.pdf-sec') && current.children.length>4){heading.remove();nextPage();queue.unshift(heading,block);}
+        else{nextPage();queue.unshift(block);}
+        continue;
+      }
+      // 非常に長い段落も縮小・省略せず分割する。
+      if(block.querySelectorAll('p').length>1 && block.children.length>1){queue.unshift(...Array.from(block.children));continue;}
+      const paragraph=block.matches('p')?block:block.querySelector('p');
+      if(paragraph && paragraph.textContent.length>100){
+        const text=Array.from(paragraph.textContent);const half=Math.ceil(text.length/2);
+        const rest=block.cloneNode(true);const restParagraph=rest.matches('p')?rest:rest.querySelector('p');
+        paragraph.textContent=text.slice(0,half).join('');restParagraph.textContent=text.slice(half).join('');
+        queue.unshift(block,rest);continue;
+      }
+      if(block.children.length>1){queue.unshift(...Array.from(block.children));continue;}
+      throw new Error('PDFの内容をページ内に配置できませんでした。');
+    }
+    const pages=Array.from(document.querySelectorAll('#pdf-view .pdf-page'));
+    pages.forEach((page,index)=>{page.querySelector('.pdf-pnum').textContent=String(index+1).padStart(2,'0')+' / '+String(pages.length).padStart(2,'0');});
+  }finally{printStyle.remove();}
 }
 
 // =============================
@@ -2258,7 +2319,9 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   // 前回のコメントをクリア（autofill対策で二重クリア）
   const uc = document.getElementById('userComment');
   if(uc) uc.value = '';
-  setTimeout(()=>{ const u=document.getElementById('userComment'); if(u) u.value=''; }, 300);
+  // 表示後の遅延初期化は、直後に入力したコメントを消してしまう。
+  const userCommentInput=document.getElementById('userComment');
+  if(userCommentInput)userCommentInput.value='';
   // 結果画面では設問コメント入力欄だけを空にする。保存済みquestionCommentsは保持する。
   const qc2 = document.getElementById('qComment');
   if(qc2) qc2.value = '';

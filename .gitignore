@@ -1,0 +1,9 @@
+node_modules/
+.tools/
+test-results/
+playwright-report/
+.vercel/
+.env*
+!.env.example
+tmp/
+.release-evidence.json
