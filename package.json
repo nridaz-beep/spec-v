@@ -6,6 +6,6 @@
     "stripe": "^16.12.0"
   },
   "scripts": {
-    "check": "node scripts/check-syntax.js"
+    "check": "node scripts/check-syntax.js && node scripts/check-release.js"
   }
 }
