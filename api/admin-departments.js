@@ -40,6 +40,6 @@ module.exports = async function handler(req, res) {
 
 function isAuthorized(req) {
   const expected = process.env.ADMIN_PASSWORD;
-  if (!expected) return true;
+  if (!expected) return false;
   return String(req.headers['x-admin-password'] || '').trim() === expected;
 }

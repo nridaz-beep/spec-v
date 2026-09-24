@@ -51,12 +51,23 @@ async function markTokenUsedWithRetry(tokenId, maxRetries = 3) {
         .from('tokens')
         .update({ status: 'used', used_at: new Date().toISOString() })
         .eq('id', String(tokenId).trim().toUpperCase())
-        .in('status', ['unused', 'pending', 'used']) // 既にusedでも成功扱い
+        .in('status', ['unused', 'pending'])
         .select('id, status')
         .maybeSingle();
 
       if (!error && data) return { ok: true, data };
-      if (!error && !data) return { ok: false, reason: 'token_not_found_or_inactive' };
+      if (!error && !data) {
+        // 二次分析や通知再送で最初の使用日時を上書きしない。
+        const existing = await supabase.from('tokens').select('id, status, used_at').eq('id', String(tokenId).trim().toUpperCase()).maybeSingle();
+        if (existing.error) throw existing.error;
+        if (existing.data?.status === 'used' && existing.data.used_at) return { ok: true, data: existing.data };
+        if (existing.data?.status === 'used') {
+          const repaired = await supabase.from('tokens').update({ used_at: new Date().toISOString() }).eq('id', existing.data.id).eq('status', 'used').is('used_at', null).select('id, status').maybeSingle();
+          if (repaired.error) throw repaired.error;
+          return { ok: true, data: existing.data };
+        }
+        return { ok: false, reason: 'token_not_found_or_inactive' };
+      }
       console.warn(`[Notify] Token更新失敗 (attempt ${i+1}):`, error.message);
     } catch (e) {
       console.warn(`[Notify] Token更新接続失敗 (attempt ${i+1}):`, e.message);
