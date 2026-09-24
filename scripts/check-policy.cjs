@@ -1,0 +1,12 @@
+const fs = require('node:fs');
+const crypto = require('node:crypto');
+const assert = require('node:assert/strict');
+const policy = require('../release-policy.json');
+const hash = file => crypto.createHash('sha256').update(fs.readFileSync(file, 'utf8').replace(/\r\n/g, '\n')).digest('hex');
+const latest = fs.readFileSync('main.html', 'utf8').match(/const\s+LATEST\s*=\s*['"]([^'"]+)['"]/)[1];
+assert([policy.candidate, policy.stable].includes(latest), 'LATEST must be the tested candidate or preserved stable version');
+assert.equal(hash(policy.stable), policy.stableSha256, 'Original stable HTML must remain unchanged');
+const vercel = JSON.parse(fs.readFileSync('vercel.json'));
+assert.equal(vercel.git.deploymentEnabled, false, 'Git deploy must not bypass CI');
+assert.equal(vercel.buildCommand, 'npm run build', 'Build must require successful test evidence');
+console.log('[policy] Stable preserved; automatic Git deployment disabled; evidence required');

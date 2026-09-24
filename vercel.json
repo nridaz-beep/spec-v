@@ -14,6 +14,7 @@
       "handle": "filesystem"
     }
   ],
-  "buildCommand": "npm run check",
+  "git": { "deploymentEnabled": false },
+  "buildCommand": "npm run build",
   "outputDirectory": "."
 }
