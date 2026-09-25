@@ -544,13 +544,19 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
     overflow: hidden !important;
     box-sizing: border-box !important;
     position: relative !important;
-    page-break-after: always !important;
-    break-after: page !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
+    page-break-before: always !important;
+    break-before: page !important;
     break-inside: avoid !important;
   }
   #pdf-view .pdf-page:last-child {
     page-break-after: auto !important;
     break-after: auto !important;
+  }
+  #pdf-view .pdf-page:first-child {
+    page-break-before: auto !important;
+    break-before: auto !important;
   }
   #pdf-view .pdf-head { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e0d0a0; padding:5px 0 7px; margin-bottom:10px; }
   #pdf-view .pdf-logo { font-family:Arial,sans-serif; font-size:8px; letter-spacing:.22em; font-weight:700; }
@@ -1797,6 +1803,10 @@ function paginatePdfReport(){
       if(block.children.length>1){queue.unshift(...Array.from(block.children));continue;}
       throw new Error('PDFの内容をページ内に配置できませんでした。');
     }
+    const pdfPageHasContent=page=>Array.from(page.children).some(el=>!el.matches('.pdf-head,.pdf-foot,.pdf-gold-bar')&&el.textContent.trim());
+    document.querySelectorAll('#pdf-view .pdf-page[data-overflow-page]').forEach(page=>{if(!pdfPageHasContent(page))page.remove();});
+    const sourcePage=document.getElementById('pdf-p3');
+    if(sourcePage&&!pdfPageHasContent(sourcePage))sourcePage.remove();
     const pages=Array.from(document.querySelectorAll('#pdf-view .pdf-page'));
     pages.forEach((page,index)=>{page.querySelector('.pdf-pnum').textContent=String(index+1).padStart(2,'0')+' / '+String(pages.length).padStart(2,'0');});
   }finally{printStyle.remove();}
