@@ -1,4 +1,19 @@
-<!DOCTYPE html>
+page-break-after: auto !important;
+    break-after: auto !important;
+    page-break-before: always !important;
+    break-before: page !important;#pdf-view .pdf-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+  #pdf-view .pdf-page:first-child {
+    page-break-before: auto !important;
+    break-before: auto !important;
+  }const pdfPageHasContent=page=>Array.from(page.children).some(el=>!el.matches('.pdf-head,.pdf-foot,.pdf-gold-bar')&&el.textContent.trim());
+    document.querySelectorAll('#pdf-view .pdf-page[data-overflow-page]').forEach(page=>{if(!pdfPageHasContent(page))page.remove();});
+    const sourcePage=document.getElementById('pdf-p3');
+    if(sourcePage&&!pdfPageHasContent(sourcePage))sourcePage.remove();
+    const pages=Array.from(document.querySelectorAll('#pdf-view .pdf-page'));
+    pages.forEach((page,index)=><!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
