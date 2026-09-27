@@ -128,6 +128,24 @@ test('長文AIでもPDF全文を保持して改ページでき、再印刷でペ
   expect(await page.locator('#pdf-view .pdf-page').count()).toBe(count);
   expect(await page.locator('#pdf-view').innerText()).toBe(text);
 });
+test('Android幅でも空白の印刷ページを作らずAction Planまで出力する', async ({ page, request }, testInfo) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await diagnosis(page);
+  await page.locator('#userComment').fill('しんどい');
+  await page.locator('#runSecondAnalysis').click();
+  await expect(page.locator('#secondAnalysisBlocks')).toContainText('具体的な行動');
+  await printAndCheck(page, testInfo);
+  const pages = await page.locator('#pdf-view .pdf-page').evaluateAll(nodes => nodes.map(el => el.innerText));
+  expect(pages.every(text => text.replace(/SPEC-V DIAGNOSTIC REPORT|Spec-V —[^\n]*/g, '').trim().length > 20)).toBe(true);
+  expect(pages.at(-1)).toContain('Action Plan');
+  await page.emulateMedia({ media: 'print' });
+  const layout = await page.locator('#pdf-view .pdf-page').evaluateAll(nodes => nodes.map(el => {
+    const style = getComputedStyle(el);
+    return { height: style.height, breakAfter: style.breakAfter, breakBefore: style.breakBefore, overflow: style.overflow };
+  }));
+  expect(layout.every((entry, index) => entry.breakAfter === 'auto' && entry.overflow === 'visible' && (index === 0 || entry.breakBefore === 'page'))).toBe(true);
+  expect(layout.every(entry => entry.height !== '1122.52px')).toBe(true);
+});
 test('二次AIの失敗後に再試行でき、空欄は外部AIへ送らない', async ({ page, request }) => {
   await diagnosis(page);
   await expect(page.locator('#aiBlocks')).toContainText('具体的な行動');
