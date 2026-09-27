@@ -544,13 +544,20 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
     overflow: hidden !important;
     box-sizing: border-box !important;
     position: relative !important;
-    page-break-after: always !important;
-    break-after: page !important;
+    page-break-after: auto !important;
+    break-after: auto !important;
+    /* Chromium Android can apply the legacy and modern break rules twice. */
+    page-break-before: auto !important;
+    break-before: page !important;
     break-inside: avoid !important;
   }
   #pdf-view .pdf-page:last-child {
     page-break-after: auto !important;
     break-after: auto !important;
+  }
+  #pdf-view .pdf-page:first-child {
+    page-break-before: auto !important;
+    break-before: auto !important;
   }
   #pdf-view .pdf-head { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e0d0a0; padding:5px 0 7px; margin-bottom:10px; }
   #pdf-view .pdf-logo { font-family:Arial,sans-serif; font-size:8px; letter-spacing:.22em; font-weight:700; }
@@ -1797,6 +1804,10 @@ function paginatePdfReport(){
       if(block.children.length>1){queue.unshift(...Array.from(block.children));continue;}
       throw new Error('PDFの内容をページ内に配置できませんでした。');
     }
+    const pdfPageHasContent=page=>Array.from(page.children).some(el=>!el.matches('.pdf-head,.pdf-foot,.pdf-gold-bar')&&el.textContent.trim());
+    document.querySelectorAll('#pdf-view .pdf-page[data-overflow-page]').forEach(page=>{if(!pdfPageHasContent(page))page.remove();});
+    const sourcePage=document.getElementById('pdf-p3');
+    if(sourcePage&&!pdfPageHasContent(sourcePage))sourcePage.remove();
     const pages=Array.from(document.querySelectorAll('#pdf-view .pdf-page'));
     pages.forEach((page,index)=>{page.querySelector('.pdf-pnum').textContent=String(index+1).padStart(2,'0')+' / '+String(pages.length).padStart(2,'0');});
   }finally{printStyle.remove();}
@@ -2720,7 +2731,7 @@ async function runSecondAnalysis(){
   const prompt=`あなたはSpec-Vという人材診断ツールの分析AIです。
 「この人はどんな人か」ではなく「今どういう状態にあり、なぜそうなっているか」を読むツールです。
 
-絶対ルール：スコアの羅列をしない。因果と状態を語る。断定せず「可能性」「傾向」「読める」を使う。全体平均5.0超の場合、相対的に低い軸は「伸びしろ」として表現する。入力とスコアにない経歴・具体的な職場場面・部下やチームの状態・本人の判断や感情を創作しない。提案は「試せる案」「確認したい仮説」として書く。複数項目が同点のときは単独首位と断定せず「最高群」「同率」と表現する。高潔さや任せる力が全体の相対的な谷にあっても、5点前後を弱点・人格評価として扱わない。
+絶対ルール：スコアの羅列をしない。まず観測事実（入力された数値・本人の言葉）を示し、次に複数の背景仮説を並べ、最後に本人へ確認したい問いへ進む。数値や短いコメント1つから原因・心理状態・動機・能力・人格を確定しない。因果は「可能性」「傾向」「仮説」「示唆」として書き、確認前の断定を避ける。4.8などの数値は全体の中で比較的高く表れていると書き、「極めて高い」「非常に優れている」などへ飛躍させない。3点前後の項目は相対的に表れにくい可能性として扱い、能力欠如・人格評価へ変換しない。「がんばるわ」「不満」などの短文は、我慢・前向きさ・諦め、環境要因・停滞感・役割不一致など複数の読みを残す。全体平均5.0超の場合、相対的に低い軸は「伸びしろ」として表現する。入力とスコアにない経歴・具体的な職場場面・部下やチームの状態・本人の判断や感情を創作しない。提案は「試せる案」「確認したい仮説」として書く。複数項目が同点のときは単独首位と断定せず「最高群」「同率」と表現する。高潔さや任せる力が全体の相対的な谷にあっても、5点前後を弱点・人格評価として扱わない。
 
 絶対出力禁止ワード：気質、性質、コンピテンシー、F気質、A気質、G気質、W気質、パーソナルスキャン、PS、M-IT、MIT、クラスター、原点距離、マイナスV人財、V人財、マイナスV、V人材
 面接・採用目的では、採用・不採用、合格・不合格、採否、人物の優劣、固定的な人格・能力評価を出力しない。面接担当者が本人との対話を深めるための仮説・確認事項・質問・環境支援だけを生成する。
@@ -3301,8 +3312,10 @@ async function callAI(scores,ti,compi){
 「この人はどんな人か」ではなく「今どういう状態にあり、なぜそうなっているか」を読むツールです。
 
 絶対ルール：
-・数値→高低差→要素同士の関係→背景仮説→現在の状態→示唆→行動・環境への介入、の順で読む。
+・観測事実（数値・本人入力）→複数の背景仮説→本人に確認すべき問い→現在の状態→示唆→行動・環境への介入、の順で読む。原因が未確認なら一つに決めない。
 ・低い数値を能力不足・欠点・固定的人格と解釈しない。疲弊、役割不一致、ストレス、環境による蓋で今は外へ出ていない可能性を必ず検討する。
+・4.8などの数値は「全体の中で比較的高く表れている」と扱い、「極めて高い」などの断定に変換しない。3点前後は能力欠如・人格評価に変換せず、相対的に表れにくい可能性として扱う。
+・短文コメント1つから心理状態・動機・原因を決め打ちしない。「がんばるわ」「不満」などは複数の可能性を残し、次に確認する問いを示す。
 ・強みと課題を別々に並べず、同じ根から強みと副作用が生まれる構造を示す。
 ・断定せず「可能性」「傾向」「読み取れる」を使い、回答時点の現在地として表現する。
 ・本人に求める行動だけでなく、周囲・役割・仕組みなど環境側の介入も示す。
