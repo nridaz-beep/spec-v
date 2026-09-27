@@ -1752,6 +1752,14 @@ function openPrintPage(){
   const p3el=document.getElementById('pdf-p3');
   if(!p1el){alert('PDF DOMが見つかりません。');return;}
 
+  // 印刷CSSはwindow.print()の直前まで適用されないため、測定中だけPDF DOMを可視化する。
+  // これにより非表示状態のclientHeight=0を基準にした誤った改ページを防ぐ。
+  const pdfView=document.getElementById('pdf-view');
+  const previousDisplay=pdfView.style.display;
+  const previousVisibility=pdfView.style.visibility;
+  pdfView.style.display='block';
+  pdfView.style.visibility='hidden';
+
   // tcol動的適用
   document.querySelectorAll('.pdf-sec').forEach(el=>{el.style.color=tcol;el.style.borderColor='#e0d0a0';});
 
@@ -1762,7 +1770,12 @@ function openPrintPage(){
   // 固定A4枠で本文を切り捨てない。印刷と同じCSSで測り、AI本文を改ページする。
   paginatePdfReport();
 
-  // 印刷実行
+  // 印刷実行。終了後は通常画面へ戻す。
+  pdfView.style.visibility='visible';
+  window.addEventListener('afterprint',()=>{
+    pdfView.style.display=previousDisplay||'none';
+    pdfView.style.visibility=previousVisibility||'';
+  },{once:true});
   window.print();
 }
 
