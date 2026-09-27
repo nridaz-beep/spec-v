@@ -1757,8 +1757,22 @@ function openPrintPage(){
   const pdfView=document.getElementById('pdf-view');
   const previousDisplay=pdfView.style.display;
   const previousVisibility=pdfView.style.visibility;
+  const previousWidth=pdfView.style.width;
   pdfView.style.display='block';
   pdfView.style.visibility='hidden';
+  pdfView.style.width='210mm';
+  // 改ページ計算は媒体状態に依存させず、A4枠を直接測る。
+  pdfView.querySelectorAll('.pdf-page').forEach(page=>{
+    page.style.display='block';
+    page.style.width='210mm';
+    page.style.height='297mm';
+    page.style.maxHeight='297mm';
+    page.style.padding='10mm 12mm';
+    page.style.margin='0';
+    page.style.boxSizing='border-box';
+    page.style.overflow='hidden';
+    page.style.position='relative';
+  });
 
   // tcol動的適用
   document.querySelectorAll('.pdf-sec').forEach(el=>{el.style.color=tcol;el.style.borderColor='#e0d0a0';});
@@ -1775,6 +1789,7 @@ function openPrintPage(){
   window.addEventListener('afterprint',()=>{
     pdfView.style.display=previousDisplay||'none';
     pdfView.style.visibility=previousVisibility||'';
+    pdfView.style.width=previousWidth||'';
   },{once:true});
   window.print();
 }
