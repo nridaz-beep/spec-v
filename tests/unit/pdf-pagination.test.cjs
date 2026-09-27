@@ -8,8 +8,10 @@ const source = fs.readFileSync(formPath, 'utf8');
 
 test('Android PDF pagination uses break-before and keeps the first page unbroken', () => {
   assert.match(source, /.pdf-page:first-child\s*\{[\s\S]*?break-before:\s*auto/);
-  assert.match(source, /.pdf-page\s*\{[\s\S]*?page-break-before:\s*always/);
+  assert.match(source, /.pdf-page\s*\{[\s\S]*?page-break-before:\s*auto/);
+  assert.match(source, /.pdf-page\s*\{[\s\S]*?break-before:\s*page/);
   assert.doesNotMatch(source, /.pdf-page\s*\{[\s\S]*?page-break-after:\s*always/);
+  assert.match(source, /Chromium Android can apply the legacy and modern break rules twice/);
 });
 
 test('PDF pagination removes header-only overflow pages', () => {
