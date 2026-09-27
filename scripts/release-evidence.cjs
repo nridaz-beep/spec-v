@@ -31,6 +31,11 @@ function validateReport(report) {
   for (const phrase of ['81問','3回失敗','test=1','LATEST','claim','used_at','空本文','長文AI','再試行']) assert(tests.some(x => x.spec.title.includes(phrase)), `Missing required case: ${phrase}`);
   return tests.length;
 }
+function shouldRequireEvidence(env = process.env) {
+  // Preview deployments are test artifacts, not promotion candidates. Keep the
+  // fail-closed evidence gate for local/CI checks and Production deployments.
+  return env.VERCEL_ENV !== 'preview';
+}
 function run(mode) {
   const policy = JSON.parse(fs.readFileSync(path.join(root, 'release-policy.json')));
   const latest = fs.readFileSync(path.join(root, 'main.html'), 'utf8').match(/const\s+LATEST\s*=\s*['"]([^'"]+)['"]/)[1];
@@ -43,6 +48,10 @@ function run(mode) {
     fs.writeFileSync(evidencePath, JSON.stringify(evidence, null, 2));
     console.log(`Recorded ${count} passing tests for ${sha}`);
   } else if (mode === 'verify') {
+    if (!shouldRequireEvidence()) {
+      console.log('[release] Preview build: release evidence check skipped; Production remains gated');
+      return;
+    }
     const evidence = JSON.parse(fs.readFileSync(evidencePath));
     assert.equal(latest, policy.candidate, 'Normal promotion requires LATEST to point to the fully tested candidate; use deployment rollback for the old stable release');
     assert.equal(evidence.candidate, latest); assert(evidence.count >= 10);
@@ -52,4 +61,5 @@ function run(mode) {
   } else throw new Error('Expected create or verify');
 }
 module.exports = { validateReport };
+module.exports.shouldRequireEvidence = shouldRequireEvidence;
 if (require.main === module) { try { run(process.argv[2]); } catch (error) { console.error('[release blocked]', error.message); process.exitCode = 1; } }
