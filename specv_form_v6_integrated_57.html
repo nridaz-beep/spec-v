@@ -1847,6 +1847,15 @@ function paginatePdfReport(){
       const page=document.createElement('div');
       page.className='pdf-page';
       page.dataset.overflowPage='true';
+      page.style.display='block';
+      page.style.width='210mm';
+      page.style.height='297mm';
+      page.style.maxHeight='297mm';
+      page.style.padding='10mm 12mm';
+      page.style.margin='0';
+      page.style.boxSizing='border-box';
+      page.style.overflow='hidden';
+      page.style.position='relative';
       page.append(gold.cloneNode(true),head.cloneNode(true),foot.cloneNode(true));
       document.getElementById('pdf-view').appendChild(page);
       current=page;
