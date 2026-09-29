@@ -1,5 +1,5 @@
 const { test, expect } = require('@playwright/test');
-const { PDFDocument } = require('pdf-lib');
+const { PDFDocument, PDFName } = require('pdf-lib');
 const fs = require('node:fs');
 const path = require('node:path');
 const candidate = '/' + require('../../release-policy.json').candidate;
@@ -127,6 +127,117 @@ test('長文AIでもPDF全文を保持して改ページでき、再印刷でペ
   await printAndCheck(page, testInfo);
   expect(await page.locator('#pdf-view .pdf-page').count()).toBe(count);
   expect(await page.locator('#pdf-view').innerText()).toBe(text);
+});
+test('Android幅でも空白の印刷ページを作らずAction Planまで出力する', async ({ page, request }, testInfo) => {
+  await page.setViewportSize({ width: 393, height: 852 });
+  await diagnosis(page);
+  await page.locator('#userComment').fill('しんどい');
+  await page.locator('#runSecondAnalysis').click();
+  await expect(page.locator('#secondAnalysisBlocks')).toContainText('具体的な行動');
+  await printAndCheck(page, testInfo);
+  const pages = await page.locator('#pdf-view .pdf-page').evaluateAll(nodes => nodes.map(el => el.innerText));
+  expect(pages.every(text => text.replace(/SPEC-V DIAGNOSTIC REPORT|Spec-V —[^\n]*/g, '').trim().length > 20)).toBe(true);
+  expect(pages.at(-1)).toContain('Action Plan');
+  await page.emulateMedia({ media: 'print' });
+  const layout = await page.locator('#pdf-view .pdf-page').evaluateAll(nodes => nodes.map(el => {
+    const style = getComputedStyle(el);
+    return { height: style.height, breakAfter: style.breakAfter, breakBefore: style.breakBefore, overflow: style.overflow };
+  }));
+  expect(layout.every((entry, index) => entry.breakAfter === 'auto' && entry.overflow === 'visible' && (index === 0 || entry.breakBefore === 'page'))).toBe(true);
+  expect(layout.every(entry => entry.height !== '1122.52px')).toBe(true);
+});
+test('Androidはwindow.printを使わず4ページの日本語A4 PDFを直接保存する', async ({ page, request }, testInfo) => {
+  const errors=[];
+  page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
+  page.on('dialog',dialog=>{errors.push(dialog.message());dialog.dismiss();});
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', {
+    configurable: true,
+    get: () => 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'
+  }));
+  await diagnosis(page);
+  await page.locator('#userComment').fill('しんどい');
+  await page.locator('#runSecondAnalysis').click();
+  await expect(page.locator('#secondAnalysisBlocks')).toContainText('具体的な行動');
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('button', { name: /診断結果をPDFで保存する/ }).click();
+  const download=await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^Spec-V-診断結果-\d{4}-\d{2}-\d{2}\.pdf$/);
+  const file=testInfo.outputPath('android-diagnosis.pdf');
+  await download.saveAs(file);
+  const bytes=fs.readFileSync(file);
+  const pdf=await PDFDocument.load(bytes);
+  const pageTexts=await page.locator('#pdf-view .pdf-page').evaluateAll(nodes => nodes.map(node => node.innerText));
+  expect(pdf.getPageCount()).toBe(pageTexts.length);
+  expect(pdf.getPageCount()).toBe(4);
+  expect(pageTexts.every(text => text.trim().length > 100)).toBe(true);
+  expect(pageTexts.join('\n')).toContain('1次分析レポート');
+  expect(pageTexts.join('\n')).toContain('2次分析レポート');
+  expect(pageTexts.at(-1)).toContain('Action Plan');
+  for(const outputPage of pdf.getPages()){
+    expect(outputPage.getWidth()).toBeCloseTo(595.28,0);
+    expect(outputPage.getHeight()).toBeCloseTo(841.89,0);
+  }
+  const images=pdf.context.lookup(pdf.getPages()[0].node.Resources().get(PDFName.of('XObject')));
+  expect(images.keys()).toHaveLength(pdf.getPageCount());
+  for(const key of images.keys())expect(pdf.context.lookup(images.get(key)).contents.length).toBeGreaterThan(50_000);
+  expect(bytes.length).toBeGreaterThan(50_000);
+  expect(await page.evaluate(() => window.__printRequested)).not.toBe(true);
+  await expect(page.getByRole('button', { name: /診断結果をPDFで保存する/ })).toBeEnabled();
+  expect(errors).toEqual([]);
+});
+test('PC版UAでもUA-CH platformがAndroidなら直接PDFを保存する', async ({ page, request }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { configurable:true, value:'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36' });
+    Object.defineProperty(navigator, 'userAgentData', { configurable:true, value:{ platform:'Android', mobile:false } });
+  });
+  await diagnosis(page);
+  expect(await page.evaluate(() => getPdfRouteInfo().route)).toBe('direct');
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('button', { name: /診断結果をPDFで保存する/ }).click();
+  const download=await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+  expect(await page.evaluate(() => window.__printRequested)).not.toBe(true);
+});
+test('UAとUA-CHがLinuxでもタッチ操作なら直接PDF経路を選ぶ', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { configurable:true, value:'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36' });
+    Object.defineProperty(navigator, 'userAgentData', { configurable:true, value:{ platform:'Linux', mobile:false } });
+    Object.defineProperty(navigator, 'maxTouchPoints', { configurable:true, value:5 });
+    const original=window.matchMedia.bind(window);
+    window.matchMedia=query=>query==='(pointer: coarse)'?{matches:true}:original(query);
+  });
+  await page.goto(candidate);
+  expect(await page.evaluate(() => getPdfRouteInfo().route)).toBe('direct');
+});
+test('Android識別情報が隠れてもpdfmode=directなら直接PDF経路を選ぶ', async ({ page }) => {
+  await page.goto(candidate+'?pdfmode=direct');
+  expect(await page.evaluate(() => getPdfRouteInfo().route)).toBe('direct');
+});
+test('Android長文AI PDFもページを増やして全文を保持する', async ({ page, request }, testInfo) => {
+  await request.post('/__test/options', { data: { longAI: true } });
+  await page.setViewportSize({ width: 393, height: 852 });
+  await page.addInitScript(() => Object.defineProperty(navigator, 'userAgent', {
+    configurable: true,
+    get: () => 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36'
+  }));
+  await diagnosis(page);
+  await page.locator('#userComment').fill('しんどい');
+  await page.locator('#runSecondAnalysis').click();
+  await expect(page.locator('#secondAnalysisBlocks')).toContainText('具体的な行動');
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('button', { name: /診断結果をPDFで保存する/ }).click();
+  const file=testInfo.outputPath('android-long-ai.pdf');
+  await (await downloadPromise).saveAs(file);
+  const pdf=await PDFDocument.load(fs.readFileSync(file));
+  const pages=await page.locator('#pdf-view .pdf-page').evaluateAll(nodes => nodes.map(node => node.textContent));
+  expect(pdf.getPageCount()).toBe(pages.length);
+  expect(pages.length).toBeGreaterThanOrEqual(5);
+  expect(pages.join('\n')).toContain('Action Plan');
+  const images=pdf.context.lookup(pdf.getPages()[0].node.Resources().get(PDFName.of('XObject')));
+  expect(images.keys()).toHaveLength(pdf.getPageCount());
+  for(const key of images.keys())expect(pdf.context.lookup(images.get(key)).contents.length).toBeGreaterThan(50_000);
+  expect(await page.evaluate(() => window.__printRequested)).not.toBe(true);
 });
 test('二次AIの失敗後に再試行でき、空欄は外部AIへ送らない', async ({ page, request }) => {
   await diagnosis(page);
