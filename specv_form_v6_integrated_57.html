@@ -1557,10 +1557,12 @@ document.addEventListener('DOMContentLoaded',()=>{
   if(devBar && window.SPECV_LOCAL_DEV){
     devBar.style.display='flex';
   }
-  if(/Android/i.test(navigator.userAgent)){
+  const pdfRoute=getPdfRouteInfo();
+  if(pdfRoute.route==='direct'){
     const pdfHint=document.querySelector('#printBtnArea p');
-    if(pdfHint)pdfHint.textContent='※ AndroidではPDFファイルを直接ダウンロードします。';
+    if(pdfHint)pdfHint.textContent='※ PDFファイルを直接ダウンロードします。';
   }
+  showPdfRouteDebug(pdfRoute);
   // 未送信キューの再送（バックグラウンド）
   setTimeout(()=>{
     retryPendingTokens();
@@ -1568,12 +1570,44 @@ document.addEventListener('DOMContentLoaded',()=>{
   }, 2000);
 });
 
+function getPdfRouteInfo(){
+  const platform=navigator.userAgentData?.platform||'';
+  const userAgent=navigator.userAgent||'';
+  const legacyPlatform=navigator.platform||'';
+  const touchLinux=navigator.maxTouchPoints>0 && /Linux|CrOS/i.test(userAgent)
+    && !!window.matchMedia?.('(pointer: coarse)').matches;
+  const forced=new URLSearchParams(location.search).get('pdfmode')==='direct';
+  const android=/Android/i.test(platform)||/Android/i.test(userAgent)||/Android/i.test(legacyPlatform);
+  return {platform,userAgent,legacyPlatform,touchLinux,forced,route:forced||android||touchLinux?'direct':'print'};
+}
+
+function showPdfRouteDebug(info){
+  const preview=location.hostname.endsWith('.vercel.app')&&location.hostname!=='spec-v.vercel.app';
+  if(!preview)return;
+  console.info('[Spec-V PDF route]',info);
+  if(new URLSearchParams(location.search).get('pdfdebug')!=='1')return;
+  let panel=document.getElementById('pdf-route-debug');
+  if(!panel){
+    panel=document.createElement('pre');
+    panel.id='pdf-route-debug';
+    panel.style.cssText='position:fixed;z-index:99999;left:8px;bottom:8px;max-width:calc(100vw - 16px);max-height:35vh;overflow:auto;padding:8px;background:#fff;color:#111;border:2px solid #315bd6;font:11px/1.4 monospace;white-space:pre-wrap;word-break:break-all;';
+    document.body.appendChild(panel);
+  }
+  panel.textContent='PDF route: '+info.route+'\nUA-CH platform: '+(info.platform||'(unavailable)')+
+    '\nUA: '+info.userAgent+'\nlegacy platform: '+info.legacyPlatform+
+    '\ntouch Linux: '+info.touchLinux+'\nforced direct: '+info.forced+
+    '\nIf print opens on Android, add &pdfmode=direct to this Preview URL.';
+}
+
 // =============================
 // =============================
 // PDF専用DOM構築・印刷
 // =============================
 async function openPrintPage(){
   if(!_lastScores||!_lastTi||!_lastCompi){alert('先に診断を完了してください。');return;}
+
+  const pdfRoute=getPdfRouteInfo();
+  showPdfRouteDebug(pdfRoute);
 
   const s=_lastScores,ti=_lastTi,compi=_lastCompi;
   const date=new Date().toLocaleDateString('ja-JP',{year:'numeric',month:'long',day:'numeric'});
@@ -1787,10 +1821,10 @@ async function openPrintPage(){
   p3el.innerHTML=p3html;
 
   // 固定A4枠で本文を切り捨てない。印刷と同じCSSで測り、AI本文を改ページする。
-  if(/Android/i.test(navigator.userAgent) && document.fonts?.ready)await document.fonts.ready;
+  if(pdfRoute.route==='direct' && document.fonts?.ready)await document.fonts.ready;
   paginatePdfReport();
 
-  if(/Android/i.test(navigator.userAgent)){
+  if(pdfRoute.route==='direct'){
     // Android Chromeの物理改ページは使わず、既存のページDOMをA4画像PDFへ変換する。
     const button=document.querySelector('#printBtnArea button');
     if(button)button.disabled=true;

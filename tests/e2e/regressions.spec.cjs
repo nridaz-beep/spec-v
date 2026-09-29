@@ -186,6 +186,34 @@ test('Androidはwindow.printを使わず4ページの日本語A4 PDFを直接保
   await expect(page.getByRole('button', { name: /診断結果をPDFで保存する/ })).toBeEnabled();
   expect(errors).toEqual([]);
 });
+test('PC版UAでもUA-CH platformがAndroidなら直接PDFを保存する', async ({ page, request }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { configurable:true, value:'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36' });
+    Object.defineProperty(navigator, 'userAgentData', { configurable:true, value:{ platform:'Android', mobile:false } });
+  });
+  await diagnosis(page);
+  expect(await page.evaluate(() => getPdfRouteInfo().route)).toBe('direct');
+  const downloadPromise=page.waitForEvent('download');
+  await page.getByRole('button', { name: /診断結果をPDFで保存する/ }).click();
+  const download=await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/\.pdf$/);
+  expect(await page.evaluate(() => window.__printRequested)).not.toBe(true);
+});
+test('UAとUA-CHがLinuxでもタッチ操作なら直接PDF経路を選ぶ', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'userAgent', { configurable:true, value:'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/130.0.0.0 Safari/537.36' });
+    Object.defineProperty(navigator, 'userAgentData', { configurable:true, value:{ platform:'Linux', mobile:false } });
+    Object.defineProperty(navigator, 'maxTouchPoints', { configurable:true, value:5 });
+    const original=window.matchMedia.bind(window);
+    window.matchMedia=query=>query==='(pointer: coarse)'?{matches:true}:original(query);
+  });
+  await page.goto(candidate);
+  expect(await page.evaluate(() => getPdfRouteInfo().route)).toBe('direct');
+});
+test('Android識別情報が隠れてもpdfmode=directなら直接PDF経路を選ぶ', async ({ page }) => {
+  await page.goto(candidate+'?pdfmode=direct');
+  expect(await page.evaluate(() => getPdfRouteInfo().route)).toBe('direct');
+});
 test('Android長文AI PDFもページを増やして全文を保持する', async ({ page, request }, testInfo) => {
   await request.post('/__test/options', { data: { longAI: true } });
   await page.setViewportSize({ width: 393, height: 852 });
