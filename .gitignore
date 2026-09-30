@@ -7,3 +7,5 @@ playwright-report/
 !.env.example
 tmp/
 .release-evidence.json
+spec-v-db-*.sql
+/backup/spec-v-db/
