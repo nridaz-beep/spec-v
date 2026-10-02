@@ -84,6 +84,8 @@ if (!latestForm) {
   assertContains(html, "for(let attempt=0;attempt<3 && !aiText;attempt++)", latestForm, 'AI retry loop');
 }
 
+checkJavaScript(fs.readFileSync(path.join(root,'assessment-contract.js'),'utf8'),'assessment-contract.js');
+checkHtmlScripts('organization-map.html');
 // Keep admin JavaScript under syntax coverage as well.
 checkHtmlScripts('admin_v2.html');
 

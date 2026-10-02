@@ -4,6 +4,7 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const { verifyTokenClaim } = require('./_token-claim');
+const { validateResult, saveResult } = require('./_assessment-result');
 
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey =
@@ -79,48 +80,6 @@ async function markTokenUsedWithRetry(tokenId, maxRetries = 3) {
   return { ok: false };
 }
 
-// 組織に発行されたトークンだけ、集計専用の最小スナップショットを保存する。
-// 個人情報やAI本文は保存せず、同一トークンは常に1件へ更新する。
-async function saveOrganizationAssessment(d) {
-  const tokenId = String(d.token_id || '').trim().toUpperCase();
-  if (!tokenId || tokenId === 'DEV') return { ok: true, skipped: true };
-
-  const { data: token, error: tokenError } = await supabase
-    .from('tokens')
-    .select('id, org_id, department_id')
-    .eq('id', tokenId)
-    .maybeSingle();
-  if (tokenError) throw tokenError;
-  if (!token || !token.org_id) return { ok: true, skipped: true };
-
-  const assessment = {
-    token_id: token.id,
-    org_id: token.org_id,
-    department_id: token.department_id || null,
-    completed_at: d.timestamp || new Date().toISOString(),
-    type_name: String(d.type_name || '').trim(),
-    axis_suishinryoku: score(d.axis_suishinryoku),
-    axis_doku: score(d.axis_doku),
-    axis_kaihoudu: score(d.axis_kaihoudu),
-    axis_jikoniinti: score(d.axis_jikoniinti),
-    axis_tamashii: score(d.axis_tamashii),
-    axis_ai: score(d.axis_ai),
-    updated_at: new Date().toISOString()
-  };
-  if (!assessment.type_name) return { ok: false, skipped: true };
-
-  const { error } = await supabase
-    .from('organization_assessments')
-    .upsert(assessment, { onConflict: 'token_id' });
-  if (error) throw error;
-  return { ok: true };
-}
-
-function score(value) {
-  const number = Number(value);
-  return Number.isFinite(number) && number >= 0 && number <= 7 ? number : 0;
-}
-
 module.exports = async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', 'https://spec-v.vercel.app');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -153,18 +112,19 @@ module.exports = async function handler(req, res) {
       return res.status(503).json({ ok: false, reason: 'notification_config_missing' });
     }
 
-    // === 1. トークン使用済み更新（サーバー側で確実に実行） ===
-    let tokenResult = { ok: true, skipped: true };
-    tokenResult = await markTokenUsedWithRetry(tokenId);
-
-    // 集計保存に失敗しても、診断完了・トークン処理・通知を止めない。
-    let organizationMapResult = { ok: true, skipped: true };
-    try {
-      organizationMapResult = await saveOrganizationAssessment(d);
-    } catch (error) {
-      console.warn('[Notify] 組織マップ保存をスキップ:', error && error.message);
-      organizationMapResult = { ok: false };
+    let identity;
+    try { identity=validateResult(d); }
+    catch(error) { return res.status(422).json({ok:false,reason:error.message}); }
+    Object.assign(d,identity);
+    // Persist first. A storage failure is retryable and must never be reported as success.
+    let organizationMapResult;
+    try { organizationMapResult=await saveResult(supabase,d,identity); }
+    catch(error) {
+      const conflict=error.message==='assessment_identity_conflict'||error.code==='23505';
+      console.warn('[Notify] Assessment storage failed:', error.code||error.message);
+      return res.status(conflict?409:503).json({ok:false,reason:conflict?'assessment_identity_conflict':'assessment_storage_failed'});
     }
+    const tokenResult=await markTokenUsedWithRetry(tokenId);
 
     // === 2. メール送信 ===
     let mailResult = { ok: true, skipped: true };
@@ -176,6 +136,9 @@ module.exports = async function handler(req, res) {
 
 ■ 基本情報
 日時：${d.timestamp}
+受診ID：${d.assessment_id||'未記録'}
+測定版：${d.measurement_version||'legacy／版不明'}
+採点版：${d.scoring_version||'legacy／版不明'}
 トークンID：${d.token_id || '(DEV/なし)'}
 年齢：${d.age}
 職位：${d.position}
@@ -233,6 +196,7 @@ ${JSON.stringify(Object.fromEntries(Object.entries(d).filter(([key]) => key !== 
     return res.status(ok ? 200 : 503).json({
       ok,
       token: tokenResult,
+      assessment: identity,
       organization_map: organizationMapResult,
       mail: mailResult,
     });

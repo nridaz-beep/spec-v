@@ -1,3 +1,4 @@
+const { normalize: normalizeAssessment, isCurrent } = require('../assessment-contract');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
@@ -143,6 +144,10 @@ module.exports = async function handler(req,res) {
     if(Buffer.byteLength(JSON.stringify(body),'utf8')>100000) return res.status(413).json({error:'JSONは100KB以内にしてください。'});
     const error=validate(body);
     if(error) return res.status(400).json({error});
+    let identity;
+    try {identity=normalizeAssessment(body.diagnostic);}catch(error){return res.status(422).json({error:error.message});}
+    if(identity.cohort==='versioned'&&!isCurrent(identity))return res.status(422).json({error:'unsupported_assessment_version'});
+    body.diagnostic={...body.diagnostic,...identity};
     let system;
     try {system=systemPrompt();} catch {return res.status(503).json({error:'固定資料3本のサーバー配置を確認してください。'});}
     const response=await fetch('https://api.anthropic.com/v1/messages',{
@@ -161,7 +166,7 @@ module.exports = async function handler(req,res) {
     if(summaryRows.some(label => !new RegExp('^\\|\\s*' + label + '\\s*\\|','m').test(report))) {
       return res.status(422).json({error:'統合一覧表の必要項目が揃わなかったため表示を停止しました。',usage});
     }
-    return res.status(200).json({token_id:String(body.token_id).trim().toUpperCase(),model:MODEL,report,usage,generated_at:new Date().toISOString()});
+    return res.status(200).json({...identity,token_id:String(body.token_id).trim().toUpperCase(),model:MODEL,report,usage,generated_at:new Date().toISOString()});
   } catch(error) {
     return res.status(error.name==='TimeoutError'?504:502).json({error:error.name==='TimeoutError'?'生成が時間内に完了しませんでした。時間を置いて再実行してください。':'分析サービスへの接続に失敗しました。'});
   }

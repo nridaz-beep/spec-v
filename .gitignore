@@ -7,3 +7,4 @@ playwright-report/
 !.env.example
 tmp/
 .release-evidence.json
+supabase/.temp/

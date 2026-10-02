@@ -4,6 +4,7 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
+const assessmentDb = require('./helpers/assessment-rest.cjs');
 const port = Number(process.env.TEST_PORT || 4173);
 Object.assign(process.env, {
   NODE_ENV: 'production', VERCEL: '1', SUPABASE_URL: `http://127.0.0.1:${port}`,
@@ -20,6 +21,7 @@ function reset(options = {}) {
   })), ai: [], notifications: [], mails: [], updates: [], aiFailures: 0, dbFailures: 0, ...options };
 }
 reset();
+const database=assessmentDb.createDb().then(async db=>{await assessmentDb.seed(db,state);return db;});
 const nativeFetch = global.fetch;
 global.fetch = async (input, init = {}) => {
   const url = String(input);
@@ -43,7 +45,7 @@ global.fetch = async (input, init = {}) => {
   if (url.startsWith(`http://127.0.0.1:${port}/`)) return nativeFetch(input, init);
   throw new Error(`Unexpected external request blocked: ${new URL(url).origin}`);
 };
-const handlers = Object.fromEntries(['token','analyze','notify','admin-tokens','admin-departments'].map(name => [name, require(path.join(root, 'api', name + '.js'))]));
+const handlers = Object.fromEntries(['token','analyze','notify','admin-tokens','admin-departments','organization-map'].map(name => [name, require(path.join(root, 'api', name + '.js'))]));
 const server = http.createServer(async (req, res) => {
   res.status = code => { res.statusCode = code; return res; };
   res.json = value => { res.setHeader('Content-Type', 'application/json'); res.end(JSON.stringify(value)); };
@@ -52,13 +54,15 @@ const server = http.createServer(async (req, res) => {
   let raw = ''; for await (const chunk of req) raw += chunk;
   try { req.body = raw ? JSON.parse(raw) : {}; } catch { req.body = raw; }
   try {
+    const db=await database;
     if (url.pathname === '/__test/shutdown' && req.method === 'POST') { res.json({ ok: true }); setTimeout(() => { server.closeAllConnections(); server.close(); }, 50); return; }
-    if (url.pathname === '/__test/reset' && req.method === 'POST') { reset(req.body); return res.json({ ok: true }); }
-    if (url.pathname === '/__test/state') return res.json(state);
+    if (url.pathname === '/__test/reset' && req.method === 'POST') { reset(req.body); await assessmentDb.seed(db,state); return res.json({ ok: true }); }
+    if (url.pathname === '/__test/state') return res.json({...state,savedAssessments:(await db.query('SELECT * FROM assessment_results')).rows,savedLegacyAssessments:(await db.query('SELECT * FROM organization_assessments')).rows});
     if (url.pathname === '/__test/options' && req.method === 'POST') { Object.assign(state, req.body); return res.json({ ok: true }); }
     if (url.pathname === '/__test/admin-config' && req.method === 'POST') { process.env.ADMIN_PASSWORD = req.body.enabled ? 'isolated-admin' : ''; return res.json({ ok: true }); }
     if (url.pathname.startsWith('/rest/v1/')) {
       const table = url.pathname.split('/').pop();
+      if(await assessmentDb.rest(db,table,req,res,url,state))return;
       if (table !== 'tokens') return res.json([]);
       let rows = state.tokens.filter(row => [...url.searchParams].every(([key,value]) => {
         if (value.startsWith('eq.')) return String(row[key]) === value.slice(3);

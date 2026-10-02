@@ -1,5 +1,6 @@
 // 組織マップ用の集計API。個人を識別できる値は返さない。
 const crypto = require('crypto');
+const { validVersion } = require('../assessment-contract');
 const { createClient } = require('@supabase/supabase-js');
 
 const supabaseUrl = process.env.SUPABASE_URL;
@@ -28,6 +29,12 @@ module.exports = async function handler(req, res) {
   const departmentId = String(req.query.department_id || '').trim();
   if (!isUuid(orgId)) return res.status(400).json({ error: 'org_id_required' });
 
+  const measurement=req.query.measurement_version;
+  const scoring=req.query.scoring_version;
+  const cohort=req.query.cohort;
+  const versioned=measurement!==undefined||scoring!==undefined;
+  if((cohort!==undefined&&cohort!=='legacy')||(versioned&&(cohort==='legacy'||!validVersion(measurement)||!validVersion(scoring))))return res.status(400).json({error:'invalid_assessment_cohort'});
+  const identity=versioned?{cohort:'versioned',measurement_version:measurement,scoring_version:scoring}:{cohort:'legacy',measurement_version:null,scoring_version:null};
   try {
     const authorized = await authorize(req, orgId);
     if (!authorized) return res.status(401).json({ error: 'unauthorized' });
@@ -37,18 +44,19 @@ module.exports = async function handler(req, res) {
     }
 
     let query = supabase
-      .from('organization_assessments')
+      .from(versioned?'assessment_results':'organization_assessments')
       .select('department_id, type_name, axis_suishinryoku, axis_doku, axis_kaihoudu, axis_jikoniinti, axis_tamashii, axis_ai')
       .eq('org_id', orgId)
       .order('completed_at', { ascending: false })
       .limit(5000);
+    if(versioned)query=query.eq('measurement_version',measurement).eq('scoring_version',scoring);
     if (departmentId) query = query.eq('department_id', departmentId);
     const { data: rows, error } = await query;
     if (error) throw error;
 
     const assessments = rows || [];
     const departments = await departmentNames(orgId);
-    return res.status(200).json(buildMapPayload(assessments, departments, departmentId));
+    return res.status(200).json({...buildMapPayload(assessments, departments, departmentId),...identity,cohort_note:versioned?'指定した測定版・採点版のみの集計です。':'旧データ専用の互換集計です。版不明のため同一尺度は保証されません。'});
   } catch (error) {
     console.error('[organization-map] request failed', error && error.message);
     return res.status(500).json({ error: 'map_unavailable' });

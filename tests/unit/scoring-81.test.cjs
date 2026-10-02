@@ -7,7 +7,7 @@ const plain = value => JSON.parse(JSON.stringify(value));
 
 // Evaluate the actual production bank and functions without DOM or network side effects.
 function context() {
-  const ctx = vm.createContext({});
+  const ctx = vm.createContext({SpecVAssessment:require('../../assessment-contract')});
   const bank = current.match(/const QUESTION_BANK\s*=\s*\{[\s\S]*?\n\};/);
   assert(bank);
   vm.runInContext(bank[0] + ';let questions=[],answers=[];', ctx);

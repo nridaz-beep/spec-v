@@ -31,7 +31,8 @@ async function diagnosis(page, token = 'P-E2E') {
   await expect(page.locator('#qComment')).toHaveValue('二問目のコメント。役割を確認しました。');
   for (let i = 1; i < 81; i++) {
     await expect(page.locator('#qNum')).toHaveText(`${i + 1} / 81`);
-    await page.locator('#qSlider').fill(String(3 + i % 3));
+    if(i%3===1)await page.getByRole('button',{name:'4（どちらとも言えない）を選ぶ',exact:true}).click();
+    else await page.locator('#qSlider').fill(String(3 + i % 3));
     if (i === 80) await page.locator('#qComment').fill('最後のコメントも保存する。');
     await page.locator('#btnNext').click();
   }
@@ -92,6 +93,11 @@ test('81問 → コメント保持 → 一次/短文二次AI → used/used_at �
   await expect(page.locator('#secondAnalysisBlocks')).toContainText('具体的な行動');
   s = await state(request);
   expect(s.ai.at(-1).messages[0].content).toContain('しんどい');
+  await expect.poll(async()=>(await state(request)).notifications.length).toBeGreaterThan(1);
+  s=await state(request);
+  expect(s.notifications.at(-1).assessment_id).toBe(s.notifications[0].assessment_id);
+  expect(s.notifications.at(-1).timestamp).toBe(s.notifications[0].timestamp);
+  expect(s.savedAssessments).toHaveLength(1);
   await printAndCheck(page, testInfo);
   await page.goto('/admin.html');
   await page.locator('#adminPasswordInput').fill('isolated-admin');
@@ -318,6 +324,14 @@ test('stress snapshot agrees across screen, print, AI, notification and versione
   await expect(page.locator('.badge-stress')).toContainText(snapshot.stressResult.label);
   const captured=await state(request);
   expect(captured.notifications[0].stressResult).toEqual(snapshot.stressResult);
+    expect(snapshot.assessment_id).toMatch(/^[0-9a-f-]{36}$/);
+    const identity={assessment_id:snapshot.assessment_id,measurement_version:snapshot.measurement_version,scoring_version:snapshot.scoring_version};
+    expect(captured.notifications[0]).toMatchObject(identity);
+    expect(captured.savedAssessments).toHaveLength(1);
+    expect(captured.savedAssessments[0]).toMatchObject(identity);
+    const retry=await request.post('/api/notify',{data:captured.notifications[0]});
+    expect(retry.status()).toBe(200);
+    expect((await state(request)).savedAssessments).toHaveLength(1);
   expect(captured.notifications[0].responses).toHaveLength(81);
   expect(captured.notifications[0].measurementVersion).toBe(snapshot.measurementVersion);
   expect(captured.ai[0].messages[0].content).toContain('ストレス反応：'+snapshot.stressResult.label);
@@ -364,4 +378,23 @@ test('AI validates all tied stress labels and does not invent a missing reaction
     const response=await request.post('/api/analyze',{headers,data});expect(response.status()).toBe(status);
     if(status===502)expect((await response.json()).code).toBe('AI_STRESS_MISMATCH');
   }
+});
+
+test('same-version local history displays differences; mixed revisions hide previous summary and stop AI',async({page})=>{
+  await page.goto(candidate+'?token=P-E2E');
+  await expect(page.locator('#token-gate')).toBeHidden();
+  const result=await page.evaluate(async()=>{
+    const meta={measurement_version:MEASUREMENT_VERSION,scoring_version:SCORING_VERSION};
+    const entry={...meta,date:'2026-10-03',scores:{suishin:4,doku:4,kaihou:4,jiko:4,tamashii:4,ai:4},type:'静水型',lv:4};
+    let calls=0;window.callChangeAnalysisAI=async()=>{calls++;return '【CHANGE_WHAT】test';};
+    localStorage.setItem('specv_before_81_slots_20261002',JSON.stringify(entry));
+    localStorage.setItem('specv_after_81_slots_20261002',JSON.stringify({...entry,scores:{...entry.scores,ai:5}}));
+    await showBeforeAfter();
+    const same={grid:document.getElementById('diffGrid').textContent,summary:document.getElementById('diffSummary').textContent};
+    localStorage.setItem('specv_after_81_slots_20261002',JSON.stringify({...entry,scoring_version:'other'}));
+    await showBeforeAfter();
+    return {same,calls,mixed:document.getElementById('diffGrid').textContent,summary:document.getElementById('diffSummary').textContent,hidden:document.getElementById('changeAnalysisSection').style.display};
+  });
+  expect(result.same.grid).toContain('+1');expect(result.same.summary).toContain('静水型');
+  expect(result.calls).toBe(1);expect(result.mixed).toContain('差分比較は行いません');expect(result.summary).toBe('');expect(result.hidden).toBe('none');
 });

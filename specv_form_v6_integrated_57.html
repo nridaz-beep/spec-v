@@ -585,6 +585,7 @@ footer { text-align: center; padding: 40px 0; font-size: 12px; color: var(--text
   #pdf-view p { margin: 0; }
 }
 </style>
+<script src="assessment-contract.js"></script>
 </head>
 <body>
 
@@ -2221,6 +2222,7 @@ function chkReady(){
 // Sampling/scoring revisions are independent of the HTML/PDF layout revision.
 const MEASUREMENT_VERSION='81-slots-20261002';
 const SCORING_VERSION='81-stress-20261002';
+let assessmentId=null,assessmentCompletedAt=null;
 const validAnswer=v=>Number.isInteger(v)&&v>=1&&v<=7;
 // Seven original semantic positions, each repeated in three blocks of seven:
 // initiative, risk review, accommodation, curiosity, affect, persistence of method, harmony.
@@ -2267,9 +2269,10 @@ function calcStress(){
   stressCacheKey=key;
   return stressCache={scores,counts:Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v.length])),missing,leaders,label};
 }
-function measurementRecord(){return {measurementVersion:MEASUREMENT_VERSION,scoringVersion:SCORING_VERSION,stressResult:calcStress(),responses:questions.map((q,i)=>({slotId:q.slotId??null,itemId:q.itemId??('suishin_kishitsu-'+QUESTION_BANK.suishin_kishitsu.findIndex(item=>item.text===q.text)),value:validAnswer(answers[i])?answers[i]:null}))};}
+function measurementRecord(){return {assessment_id:assessmentId,measurement_version:MEASUREMENT_VERSION,scoring_version:SCORING_VERSION,measurementVersion:MEASUREMENT_VERSION,scoringVersion:SCORING_VERSION,stressResult:calcStress(),responses:questions.map((q,i)=>({slotId:q.slotId??null,itemId:q.itemId??('suishin_kishitsu-'+QUESTION_BANK.suishin_kishitsu.findIndex(item=>item.text===q.text)),value:validAnswer(answers[i])?answers[i]:null}))};}
 
 function startDiag(){
+  assessmentId=crypto.randomUUID();assessmentCompletedAt=null;
   uProfile.age=document.getElementById('inAge').value;
   uProfile.role=document.getElementById('inRole').value;
   const ind=document.getElementById('inIndustry').value||'未記入';
@@ -2903,6 +2906,7 @@ async function finishDiag(){
 }
 
 async function finalizeDiagnosis(diag){
+  assessmentCompletedAt??=new Date().toISOString();
   sh('scr-load');window.scrollTo(0,0);
   const msgs=['スコアを算出中...','状態を分析中...','AIが読み解いています...','レポートを生成中...'];
   let mi=0;
@@ -3152,7 +3156,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
 
     const payload={
       ...measurementRecord(),
-      timestamp:new Date().toISOString(),
+      timestamp:assessmentCompletedAt||new Date().toISOString(),
       token_id: sessionStorage.getItem('specv_token') || '', // サーバー側で使用済み更新に使う
       claim: sessionStorage.getItem('specv_token_claim') || '',
       // プロフィール
@@ -3279,8 +3283,9 @@ async function showBeforeAfter(){
 
   const before=JSON.parse(beforeRaw);
   const after=JSON.parse(afterRaw);
-  if(before.measurementVersion!==after.measurementVersion||before.scoringVersion!==after.scoringVersion){
+  if(!SpecVAssessment.comparable(before,after)){
     document.getElementById('beforeAfterBlock').style.display='block';
+    document.getElementById('diffSummary').textContent='';document.getElementById('changeAnalysisSection').style.display='none';
     document.getElementById('diffGrid').textContent='測定版・採点版が異なるため数値の差分比較は行いません。';return;
   }
   const bS=before.scores, aS=after.scores;
@@ -3363,7 +3368,7 @@ async function showBeforeAfter(){
 // AI変化分析呼び出し
 // =============================
 async function callChangeAnalysisAI(before,after){
-  if(!before.measurementVersion||before.measurementVersion!==after.measurementVersion||before.scoringVersion!==after.scoringVersion)throw new Error("測定版・採点版が異なるため比較できません");
+  if(!SpecVAssessment.comparable(before,after))throw new Error("測定版・採点版が異なるため比較できません");
   const bS=before.scores, aS=after.scores;
   const AXES=['suishin','doku','kaihou','jiko','tamashii','ai'];
   const AXLBL={suishin:'推進力',doku:'毒のなさ',kaihou:'解放度',jiko:'自己認知',tamashii:'魂',ai:'愛'};

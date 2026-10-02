@@ -14,6 +14,7 @@
     "build": "node scripts/release-evidence.cjs verify && npm run check"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@playwright/test": "1.58.2",
     "chart.js": "4.5.1",
     "pdf-lib": "1.17.1"

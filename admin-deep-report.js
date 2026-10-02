@@ -8,11 +8,11 @@
     <label for="dr-json">診断JSON</label><textarea id="dr-json" rows="8" spellcheck="false" autocomplete="off" placeholder='{"token_id":"F026", ...}'></textarea>
     <p>プロフィール・6軸・16項目・性向・モード・ストレスを含むJSONを使用します。自由記述や過去データも、含まれていれば分析に使います。</p>
     <div class="dr-actions"><button type="button" class="btn btn-paid" id="dr-generate">深掘りレポート生成</button><button type="button" class="btn btn-outline" id="dr-clear">入力・結果を消去</button><button type="button" class="btn btn-outline" id="dr-download" disabled>Markdownを保存</button></div>
-    <p id="dr-status" role="status" aria-live="polite"></p><pre id="dr-output" tabindex="0" aria-label="生成した深掘りレポート" hidden></pre>`;
+    <p id="dr-version" role="status"></p><p id="dr-status" role="status" aria-live="polite"></p><pre id="dr-output" tabindex="0" aria-label="生成した深掘りレポート" hidden></pre>`;
   document.getElementById('adminShell').appendChild(panel);
   const el=id=>document.getElementById('dr-'+id);
   let result=null, busy=false;
-  function resetResult(){result=null;el('output').textContent='';el('output').hidden=true;el('download').disabled=true;el('status').textContent='';}
+  function resetResult(){result=null;el('output').textContent='';el('output').hidden=true;el('download').disabled=true;el('status').textContent='';el('version').textContent='';}
   function refreshTokens(){
     const current=el('token').value;
     el('token').replaceChildren(new Option('選択してください',''));
@@ -49,6 +49,7 @@
       }
       if(data.token_id!==token_id || typeof data.report!=='string')throw Error('応答の対象トークンまたは本文を確認できませんでした。');
       result=data;
+      el('version').textContent=data.cohort==='versioned'?'受診ID：'+data.assessment_id+'／測定版：'+data.measurement_version+'／採点版：'+data.scoring_version:'legacy／版不明（旧JSONの参考レポート）';
       el('output').textContent=data.report;
       el('output').hidden=false;
       el('download').disabled=false;
@@ -59,7 +60,7 @@
   };
   el('download').onclick=()=>{
     if(!result)return;
-    const url=URL.createObjectURL(new Blob([result.report],{type:'text/markdown;charset=utf-8'}));
+    const url=URL.createObjectURL(new Blob([(el('version').textContent||'')+'\n\n'+result.report],{type:'text/markdown;charset=utf-8'}));
     const link=document.createElement('a');link.href=url;link.download=`specv_deep_${result.token_id}_${result.generated_at.slice(0,10)}.md`;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
 })();
