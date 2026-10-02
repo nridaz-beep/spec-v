@@ -914,8 +914,9 @@ async function startCheckout() {
         <span class="slider-lbl">全くそうでない</span>
         <span class="slider-lbl">非常にそうだ</span>
       </div>
-      <input type="range" class="q-slider" id="qSlider" min="1" max="7" value="4" oninput="updSlider(this.value)">
-      <div class="slider-val" id="sliderVal">4</div>
+      <input type="range" class="q-slider" id="qSlider" min="1" max="7" value="4" oninput="updSlider(this.value)" onclick="updSlider(this.value)">
+      <div class="slider-val" id="sliderVal">未回答</div>
+      <button type="button" class="btn-prev" style="display:block;margin:12px auto;padding:10px 16px" onclick="updSlider(4)">4（どちらとも言えない）を選ぶ</button>
       <div id="sliderHint" style="text-align:center;font-size:12px;color:var(--text-muted);margin-top:6px;min-height:18px;transition:opacity .2s;">4 = どちらとも言えない・場合による</div>
       <textarea id="qComment" placeholder="気になる点・補足があれば（任意）" autocomplete="off" style="width:100%;margin-top:20px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;color:var(--text);font-family:'Noto Serif JP',serif;font-size:13px;font-weight:300;outline:none;resize:vertical;min-height:72px;line-height:1.7;transition:border-color .2s;" onfocus="this.style.borderColor='var(--accent)'" onblur="this.style.borderColor='var(--border)'"></textarea>
     </div>
@@ -1630,9 +1631,7 @@ async function openPrintPage(){
 
   // データ準備
   const KD={'突破性向':'やると決めたら動く。感情エネルギーが行動の燃料。','慎重性向':'じっくり考えてから動く。リスク判断が得意。','順応性向':'場の空気を読んで合わせる。チームの安定に貢献。','跳躍性向':'面白いと感じたら飛びつく。好奇心が推進力。'};
-  const MPD={'牽引モード':'場の中心に立ち、感情を出しながら周囲を引っ張る。','実務モード':'データと事実に基づき、着実に遂行する。','支援モード':'人のために動くことにエネルギーが湧く。','発想モード':'アイデアと創造性で場を動かす。'};
-  const MSD={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-  const topKN=_lastKish?Object.entries(_lastKish.pct).sort((a,b)=>b[1]-a[1])[0][0]:'—';
+  const MPD={'牽引モード':'場の中心に立ち、感情を出しながら周囲を引っ張る。','実務モード':'データと事実に基づき、着実に遂行する。','支援モード':'人のために動くことにエネルギーが湧く。','発想モード':'アイデアと創造性で場を動かす。'};  const topKN=_lastKish?Object.entries(_lastKish.pct).sort((a,b)=>b[1]-a[1])[0][0]:'—';
   const topMEntries=_lastMode?Object.entries(_lastMode.pct).sort((a,b)=>b[1]-a[1]):[];
   const topMNamesPdf=_lastMode?topLabels(_lastMode.pct):[];
   const topMN=topMEntries[0]?.[0]||'—';
@@ -1723,7 +1722,7 @@ async function openPrintPage(){
     </div>
     <div style="display:flex;gap:8px;background:#fff8f0;border:1px solid #f0d8b0;border-left:3px solid #c07040;border-radius:0 3px 3px 0;padding:8px 12px;margin-bottom:10px;">
       <span style="font-size:13px;">⚡</span>
-      <div><div style="font-size:7px;letter-spacing:.25em;color:#c07040;text-transform:uppercase;margin-bottom:2px;">Stress Pattern</div><div style="font-size:11px;color:#704020;line-height:1.6;">${(()=>{const ss={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};questions.forEach((q,i)=>{if(!q.sub||!q.sub.includes('消極'))return;let v=answers[i];if(q.reverse)v=8-v;if(q.sub==='牽引モード消極')ss['牽引モード']=v;else if(q.sub==='実務モード消極')ss['実務モード']=v;else if(q.sub==='支援モード消極')ss['支援モード']=v;else if(q.sub==='発想モード消極')ss['発想モード']=v;});const stressMode=Object.entries(ss).sort((a,b)=>b[1]-a[1])[0]?.[0];return`平常時の主モードとは別に、消極面スコアから判定：${MSD[stressMode]||'—'}。`;})()}プレッシャー下で出やすい反応として扱います。</div></div>
+      <div><div style="font-size:7px;letter-spacing:.25em;color:#c07040;text-transform:uppercase;margin-bottom:2px;">Stress Pattern</div><div style="font-size:11px;color:#704020;line-height:1.6;">${calcStress().label}。プレッシャー下で出やすい反応として扱います。</div></div>
     </div>
     ${sec('Overall — 総評')}
     <div style="background:#1a1714;border-radius:3px;padding:12px 16px;display:flex;gap:12px;align-items:flex-start;">
@@ -1932,17 +1931,18 @@ async function saveAndroidPdf(pdfView){
 
 function paginatePdfReport(){
   document.querySelectorAll('#pdf-view [data-overflow-page]').forEach(el=>el.remove());
-  const source=document.getElementById('pdf-p3');
-  if(!source)return;
+  const sources=['pdf-p1','pdf-p2','pdf-p3'].map(id=>document.getElementById(id)).filter(Boolean);
+  if(!sources.length)return;
 
   const printStyle=document.createElement('style');
   const sheet=document.getElementById('specv-pdf-layout-fix').sheet;
   printStyle.textContent=Array.from(sheet.cssRules)
     .flatMap(rule=>rule.cssRules?Array.from(rule.cssRules).map(r=>r.cssText):[])
-    .join('\\n');
+    .join('\n');
   document.head.appendChild(printStyle);
 
   try{
+    for(const source of sources){
     const head=source.querySelector('.pdf-head').cloneNode(true);
     const foot=source.querySelector('.pdf-foot').cloneNode(true);
     const gold=source.querySelector('.pdf-gold-bar').cloneNode(true);
@@ -1963,7 +1963,7 @@ function paginatePdfReport(){
         return;
       }
       // 1次分析の外枠は中のカード単位へ展開し、長文カードを独立して分割可能にする。
-      const inner=el.querySelector(':scope > div > div > p');
+      const inner=source.id==='pdf-p3'?el.querySelector(':scope > div > div > p'):null;
       const items=inner ? Array.from(inner.parentElement.parentElement.children) : [el];
       items.forEach(addChunk);
     });
@@ -1977,7 +1977,9 @@ function paginatePdfReport(){
     function fits(){
       const body=contentNodes(current);
       if(!body.length)return true;
-      return current.scrollHeight<=current.clientHeight+1;
+      // Print pages have auto height: compare against physical A4, not their expanding clientHeight.
+      const a4Height=current.getBoundingClientRect().width*297/210;
+      return Math.max(current.scrollHeight,current.getBoundingClientRect().height)<=a4Height-2;
     }
     function nextPage(){
       const page=document.createElement('div');
@@ -1993,7 +1995,7 @@ function paginatePdfReport(){
       page.style.overflow='hidden';
       page.style.position='relative';
       page.append(gold.cloneNode(true),head.cloneNode(true),foot.cloneNode(true));
-      document.getElementById('pdf-view').appendChild(page);
+      current.after(page);
       current=page;
     }
     function splitBlock(block){
@@ -2042,6 +2044,7 @@ function paginatePdfReport(){
       }
     }
 
+    }
     const pages=Array.from(document.querySelectorAll('#pdf-view .pdf-page'));
     pages.forEach((page,index)=>{
       const pnum=page.querySelector('.pdf-pnum');
@@ -2196,7 +2199,7 @@ async function devSkip(pur){
   temporalAnswers={tamashii:'半年前より、意味や目的を言葉にして動ける場面が増えた。',ai:'半年前より、相手の反応だけでなく関係性全体を見て支援できる場面が増えた。'};
   episodeAnswers={tamashii:'自分の仕事の意味を問い直し、独立後の支援活動に具体的に落とし込んだ。',ai:'相手が話しやすい場をつくり、本人の言葉が出るまで待つ関わりを意識した。'};
   // localStorage保存（PDF別タブ用）
-  try{localStorage.setItem('sv_scores',JSON.stringify(scores));localStorage.setItem('sv_ti',JSON.stringify(ti));localStorage.setItem('sv_compi',JSON.stringify(compi));localStorage.setItem('sv_mode',JSON.stringify(mode));localStorage.setItem('sv_kish',JSON.stringify(kish));localStorage.setItem('sv_purpose',purpose);localStorage.setItem('sv_profile',JSON.stringify(uProfile));}catch(e){}
+  try{localStorage.setItem('sv_measurement',JSON.stringify(measurementRecord()));localStorage.setItem('sv_scores',JSON.stringify(scores));localStorage.setItem('sv_ti',JSON.stringify(ti));localStorage.setItem('sv_compi',JSON.stringify(compi));localStorage.setItem('sv_mode',JSON.stringify(mode));localStorage.setItem('sv_kish',JSON.stringify(kish));localStorage.setItem('sv_purpose',purpose);localStorage.setItem('sv_profile',JSON.stringify(uProfile));}catch(e){}
   sh('scr-load');
   document.getElementById('loadTxt').textContent='DEVモード：AI分析中...';
   let aiText=null;
@@ -2214,6 +2217,58 @@ function chkReady(){
   document.getElementById('btnStart').disabled=!ok;
 }
 
+
+// Sampling/scoring revisions are independent of the HTML/PDF layout revision.
+const MEASUREMENT_VERSION='81-slots-20261002';
+const SCORING_VERSION='81-stress-20261002';
+const validAnswer=v=>Number.isInteger(v)&&v>=1&&v<=7;
+// Seven original semantic positions, each repeated in three blocks of seven:
+// initiative, risk review, accommodation, curiosity, affect, persistence of method, harmony.
+function selectQuestions(){
+  const k=QUESTION_BANK.suishin_kishitsu;
+  const selected=Array.from({length:7},(_,slot)=>({...shuf([k[slot],k[slot+7],k[slot+14]])[0],slotId:'kish-'+slot}));
+  for(const key of ['suishin_seishitsu','suishin_tamashii','suishin_ai','suishin_anzen']){
+    const groups={};
+    QUESTION_BANK[key].forEach((q,index)=>{
+      const item={...q,itemId:key+'-'+index,slotId:key+'-'+q.sub};
+      // All twelve reviewed texts ask about endorsement, never avoidance of the reaction.
+      // Explicit per-item direction is separate from propulsion reverse.
+      const directions={4:false,5:false,6:false,7:false,12:false,13:false,14:false,15:false,20:false,21:false,22:false,23:false};
+      if(key==='suishin_seishitsu' && Object.hasOwn(directions,index))item.stressReverse=directions[index];
+      (groups[q.sub]??=[]).push(item);
+    });
+    Object.values(groups).forEach(items=>selected.push(shuf(items)[0]));
+  }
+  const result=selected.map(q=>({...q,axisKey:'suishin'}));
+  for(const key of ['ai','tamashii','doku','kaihou','jiko'])result.push(...shuf(QUESTION_BANK[key+'_dokuritsu'].map((q,i)=>({...q,itemId:key+'-'+i,axisKey:key}))).slice(0,10));
+  if(result.length!==81)throw new Error('Invalid measurement slots');
+  return shuf(result);
+}
+const STRESS_LABELS={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
+let stressCacheKey='',stressCache;
+function calcStress(){
+  const key=JSON.stringify([questions,answers]);
+  if(key===stressCacheKey)return stressCache;
+  const values=Object.fromEntries(Object.keys(STRESS_LABELS).map(k=>[k,[]]));
+  questions.forEach((q,i)=>{
+    const mode=q.sub?.replace(/消極$/,'');
+    if(!q.sub?.endsWith('消極')||!values[mode]||!validAnswer(answers[i]))return;
+    // Legacy raw records can be interpreted only when their item matches the reviewed bank.
+    const known=QUESTION_BANK.suishin_seishitsu.find(item=>item.sub===q.sub&&item.text===q.text);
+    const reverse=typeof q.stressReverse==='boolean'?q.stressReverse:known?false:null;
+    if(reverse===null)return;
+    values[mode].push(reverse?8-answers[i]:answers[i]);
+  });
+  const scores=Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v.length?avg(v):null]));
+  const missing=Object.keys(scores).filter(k=>scores[k]===null);
+  const max=Math.max(...Object.values(scores).filter(v=>v!==null));
+  const leaders=missing.length?[]:Object.keys(scores).filter(k=>Math.abs(scores[k]-max)<1e-9);
+  const label=missing.length?'欠測（代表反応は未判定）':leaders.map(k=>STRESS_LABELS[k]).join('／')+(leaders.length>1?'（同率）':'');
+  stressCacheKey=key;
+  return stressCache={scores,counts:Object.fromEntries(Object.entries(values).map(([k,v])=>[k,v.length])),missing,leaders,label};
+}
+function measurementRecord(){return {measurementVersion:MEASUREMENT_VERSION,scoringVersion:SCORING_VERSION,stressResult:calcStress(),responses:questions.map((q,i)=>({slotId:q.slotId??null,itemId:q.itemId??('suishin_kishitsu-'+QUESTION_BANK.suishin_kishitsu.findIndex(item=>item.text===q.text)),value:validAnswer(answers[i])?answers[i]:null}))};}
+
 function startDiag(){
   uProfile.age=document.getElementById('inAge').value;
   uProfile.role=document.getElementById('inRole').value;
@@ -2222,21 +2277,8 @@ function startDiag(){
   uProfile.job=job;
   uProfile.industry=`${ind}（${job}）`;
 
-  const k7=shuf(QUESTION_BANK.suishin_kishitsu).slice(0,7);
-  const s8=shuf(QUESTION_BANK.suishin_seishitsu).slice(0,8);
-  const t5=shuf(QUESTION_BANK.suishin_tamashii).slice(0,5);
-  const a5=shuf(QUESTION_BANK.suishin_ai).slice(0,5);
-  const z6=shuf(QUESTION_BANK.suishin_anzen).slice(0,6);
-  const sq=[...k7,...s8,...t5,...a5,...z6].map(q=>({...q,axisKey:'suishin'}));
-  questions=shuf([
-    ...sq,
-    ...shuf(QUESTION_BANK.ai_dokuritsu).slice(0,10).map(q=>({...q,axisKey:'ai'})),
-    ...shuf(QUESTION_BANK.tamashii_dokuritsu).slice(0,10).map(q=>({...q,axisKey:'tamashii'})),
-    ...shuf(QUESTION_BANK.doku_dokuritsu).slice(0,10).map(q=>({...q,axisKey:'doku'})),
-    ...shuf(QUESTION_BANK.kaihou_dokuritsu).slice(0,10).map(q=>({...q,axisKey:'kaihou'})),
-    ...shuf(QUESTION_BANK.jiko_dokuritsu).slice(0,10).map(q=>({...q,axisKey:'jiko'})),
-  ]);
-  answers=questions.map(()=>4);
+  questions=selectQuestions();
+  answers=questions.map(()=>null);
   questionComments=questions.map(()=>'');
   curIdx=0;
   sh('scr-q');
@@ -2253,8 +2295,8 @@ function renderQ(){
   document.getElementById('progFill').style.width=`${((curIdx+1)/tot)*100}%`;
   document.getElementById('qAxisTag').textContent=q.axis;
   document.getElementById('qText').textContent=q.text;
-  document.getElementById('qSlider').value=answers[curIdx];
-  document.getElementById('sliderVal').textContent=answers[curIdx];
+  document.getElementById('qSlider').value=answers[curIdx]??4;
+  document.getElementById('sliderVal').textContent=answers[curIdx]??'未回答';
   document.getElementById('btnNext').textContent=curIdx===tot-1?'診断結果を見る →':'次へ →';
   // 4の場合はヒント表示
   const hint=document.getElementById('sliderHint');
@@ -2281,7 +2323,7 @@ function updSlider(v){
   }
 }
 function prevQ(){saveCurrentQuestionComment();if(curIdx>0){curIdx--;renderQ();}}
-function nextQ(){saveCurrentQuestionComment();if(curIdx<questions.length-1){curIdx++;renderQ();}else{showTemporalQuestions();}}
+function nextQ(){if(!validAnswer(answers[curIdx])){alert('スライダーで回答を選択してください。4の場合も中央をクリックしてください。');return;}saveCurrentQuestionComment();if(curIdx<questions.length-1){curIdx++;renderQ();}else{showTemporalQuestions();}}
 
 function showTemporalQuestions(){
   const t=document.getElementById('temporalTamashii');
@@ -2364,68 +2406,68 @@ function buildSupplementalInputBlock(){
 // =============================
 function calcScores(){
   const d={suishin:[],doku:[],kaihou:[],jiko:[],tamashii:[],ai:[]};
-  questions.forEach((q,i)=>{let v=answers[i];if(q.reverse)v=8-v;d[q.axisKey].push(v);});
+  questions.forEach((q,i)=>{if(!validAnswer(answers[i]))return;let v=answers[i];if(q.reverse)v=8-v;d[q.axisKey].push(v);});
   const s={};
-  for(const[k,vals]of Object.entries(d))s[k]=r1(avg(vals));
+  for(const[k,vals]of Object.entries(d))s[k]=vals.length?r1(avg(vals)):null;
   return s;
 }
 function calcCompi(scores){
   const sd={};
   questions.forEach((q,i)=>{
     if(q.axisKey!=='suishin'||!q.sub)return;
-    let v=answers[i];if(q.reverse)v=8-v;
+    if(!validAnswer(answers[i]))return;let v=answers[i];if(q.reverse)v=8-v;
     if(!sd[q.sub])sd[q.sub]=[];
     sd[q.sub].push(v);
   });
-  const c=(sub,fb)=>{const d=sd[sub];return d&&d.length?r1(avg(d)):r1(fb||scores.tamashii||4);};
+  const c=(sub)=>{const d=sd[sub];return d&&d.length?r1(avg(d)):null;};
   return[
-    {label:'使命感',   score:c('使命感',scores.tamashii),  group:'tamashii'},
-    {label:'ビジョン', score:c('ビジョン志向',scores.tamashii),group:'tamashii'},
-    {label:'成長欲求', score:c('成長欲求',scores.tamashii),group:'tamashii'},
-    {label:'先見的思考',score:c('先見的思考',scores.tamashii),group:'tamashii'},
-    {label:'粘り強さ', score:c('粘り強さ',scores.tamashii), group:'tamashii'},
-    {label:'他者貢献', score:c('他者貢献',scores.ai),       group:'ai'},
-    {label:'共感力',   score:c('共感力',scores.ai),        group:'ai'},
-    {label:'信頼構築', score:c('信頼構築',scores.ai),       group:'ai'},
-    {label:'承認習慣', score:c('承認習慣',scores.ai),       group:'ai'},
-    {label:'帰属意識', score:c('帰属意識',scores.ai),       group:'ai'},
-    {label:'高潔さ',   score:c('高潔さ',scores.doku),      group:'anzen'},
-    {label:'感情制御', score:c('感情制御',scores.doku),     group:'anzen'},
-    {label:'任せる力', score:c('任せる力',scores.doku),     group:'anzen'},
-    {label:'攻撃性なさ',score:c('攻撃性のなさ',scores.doku),group:'anzen'},
-    {label:'心理的安全',score:c('心理的安全',scores.doku),  group:'anzen'},
-    {label:'多様性受容',score:c('多様性受容',scores.doku),  group:'anzen'},
+    {label:'使命感',   score:c('使命感'),  group:'tamashii'},
+    {label:'ビジョン', score:c('ビジョン志向'),group:'tamashii'},
+    {label:'成長欲求', score:c('成長欲求'),group:'tamashii'},
+    {label:'先見的思考',score:c('先見的思考'),group:'tamashii'},
+    {label:'粘り強さ', score:c('粘り強さ'), group:'tamashii'},
+    {label:'他者貢献', score:c('他者貢献'),       group:'ai'},
+    {label:'共感力',   score:c('共感力'),        group:'ai'},
+    {label:'信頼構築', score:c('信頼構築'),       group:'ai'},
+    {label:'承認習慣', score:c('承認習慣'),       group:'ai'},
+    {label:'帰属意識', score:c('帰属意識'),       group:'ai'},
+    {label:'高潔さ',   score:c('高潔さ'),      group:'anzen'},
+    {label:'感情制御', score:c('感情制御'),     group:'anzen'},
+    {label:'任せる力', score:c('任せる力'),     group:'anzen'},
+    {label:'攻撃性なさ',score:c('攻撃性のなさ'),group:'anzen'},
+    {label:'心理的安全',score:c('心理的安全'),  group:'anzen'},
+    {label:'多様性受容',score:c('多様性受容'),  group:'anzen'},
   ];
 }
 function calcKishitsu(){
   const d={'突破性向':[],'慎重性向':[],'順応性向':[],'跳躍性向':[]};
   questions.forEach((q,i)=>{
     if(q.axisKey!=='suishin')return;
-    let v=answers[i];if(q.reverse)v=8-v;
+    if(!validAnswer(answers[i]))return;let v=answers[i];if(q.reverse)v=8-v;
     if(q.sub==='突破性向')d['突破性向'].push(v);
     else if(q.sub==='慎重性向')d['慎重性向'].push(v);
     else if(q.sub==='順応性向')d['順応性向'].push(v);
     else if(q.sub==='跳躍性向')d['跳躍性向'].push(v);
     else if(q.sub==='FA共通'){d['突破性向'].push(v);d['跳躍性向'].push(v);}
   });
-  const raw={};for(const[k,v]of Object.entries(d))raw[k]=v.length?avg(v):4;
+  const raw={};for(const[k,v]of Object.entries(d))raw[k]=v.length?avg(v):null;
   const tot=Object.values(raw).reduce((s,v)=>s+v,0);
-  const pct={};for(const[k,v]of Object.entries(raw))pct[k]=Math.round((v/tot)*100);
+  const pct={};for(const[k,v]of Object.entries(raw))pct[k]=Object.values(raw).some(x=>x===null)?null:Math.round((v/tot)*100);
   return{raw,pct};
 }
 function calcMode(){
   const d={'牽引モード':[],'実務モード':[],'支援モード':[],'発想モード':[]};
   questions.forEach((q,i)=>{
     if(q.axisKey!=='suishin')return;
-    let v=answers[i];if(q.reverse)v=8-v;
+    if(!validAnswer(answers[i]))return;let v=answers[i];if(q.reverse)v=8-v;
     if(q.sub==='牽引モード'||q.sub==='牽引モード消極')d['牽引モード'].push(v);
     else if(q.sub==='実務モード'||q.sub==='実務モード消極')d['実務モード'].push(v);
     else if(q.sub==='支援モード'||q.sub==='支援モード消極')d['支援モード'].push(v);
     else if(q.sub==='発想モード'||q.sub==='発想モード消極')d['発想モード'].push(v);
   });
-  const raw={};for(const[k,v]of Object.entries(d))raw[k]=v.length?avg(v):4;
+  const raw={};for(const[k,v]of Object.entries(d))raw[k]=v.length?avg(v):null;
   const tot=Object.values(raw).reduce((s,v)=>s+v,0);
-  const pct={};for(const[k,v]of Object.entries(raw))pct[k]=Math.round((v/tot)*100);
+  const pct={};for(const[k,v]of Object.entries(raw))pct[k]=Object.values(raw).some(x=>x===null)?null:Math.round((v/tot)*100);
   return{raw,pct};
 }
 
@@ -2608,24 +2650,13 @@ function showResult(scores,ti,compi,kish,mode,aiText){
   const modeCrowns=crownRanks(mode.pct);
   const kishCompoundCandidate=topK[1]&&topK[1][1]>=topK[0][1]-12;
   const kBadge=topK[0][0]+(topK[1]&&topK[1][1]>=topK[0][1]-12?'×'+topK[1][0]:'');
-  const strMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-
-  // ストレス判定：消極面スコアが最高のモードで決定
-  const stressScores={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};
-  questions.forEach((q,i)=>{
-    if(!q.sub||!q.sub.includes('消極'))return;
-    let v=answers[i];if(q.reverse)v=8-v;
-    if(q.sub==='牽引モード消極')stressScores['牽引モード']=v;
-    else if(q.sub==='実務モード消極')stressScores['実務モード']=v;
-    else if(q.sub==='支援モード消極')stressScores['支援モード']=v;
-    else if(q.sub==='発想モード消極')stressScores['発想モード']=v;
-  });
-  const topStress=Object.entries(stressScores).sort((a,b)=>b[1]-a[1])[0][0];
+  // ストレス専用方向による共通結果（同率・欠測を保持）。
+  const stressResult=calcStress();
 
   document.getElementById('badgeRow').innerHTML=`
     <span class="badge badge-kishitsu"><span class="badge-dot"></span>${kBadge}</span>
     <span class="badge badge-mode"><span class="badge-dot"></span>${topMNames.join('×')||'—'} 主${topMNames.length>1?'（同率）':''}</span>
-    <span class="badge badge-stress"><span class="badge-dot"></span>ストレス時：${strMap[topStress]||'—'}</span>
+    <span class="badge badge-stress"><span class="badge-dot"></span>ストレス時：${stressResult.label}</span>
   `;
 
   // レベル
@@ -2707,12 +2738,10 @@ function showResult(scores,ti,compi,kish,mode,aiText){
       <div class="mode-pct">${p}%</div>
     </div>`;
   }).join('');
-  const MPD={'牽引モード':'明るく開放的に場の中心に立ち、感情を出しながら周囲を引っ張る。','実務モード':'データと事実に基づき、着実に遂行する。論理的な判断が得意。','支援モード':'人のために動くことにエネルギーが湧く。縁の下の力持ち。','発想モード':'アイデアと創造性で場を動かす。新しい視点を持ち込む。'};
-  const MSD={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-  const modeLabel=topMNames.join(' × ')||'—';
+  const MPD={'牽引モード':'明るく開放的に場の中心に立ち、感情を出しながら周囲を引っ張る。','実務モード':'データと事実に基づき、着実に遂行する。論理的な判断が得意。','支援モード':'人のために動くことにエネルギーが湧く。縁の下の力持ち。','発想モード':'アイデアと創造性で場を動かす。新しい視点を持ち込む。'};  const modeLabel=topMNames.join(' × ')||'—';
   const modeDescription=topMNames.map(m=>MPD[m]).filter(Boolean).join(' ');
   document.getElementById('modeCmtPos').innerHTML=`<div style="background:rgba(80,128,192,0.06);border:1px solid rgba(80,128,192,0.2);border-radius:8px;padding:16px 18px;"><div style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:#7aaae0;text-transform:uppercase;margin-bottom:8px;">平常時 — ${modeLabel}${topMNames.length>1?'（同率首位）':''}</div><p style="font-size:13px;color:var(--text-sub);line-height:1.9;">${modeDescription}</p></div>`;
-  document.getElementById('modeCmtStr').innerHTML=`<div style="background:rgba(192,120,48,0.06);border:1px solid rgba(192,120,48,0.2);border-radius:8px;padding:16px 18px;"><div style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:var(--warn);text-transform:uppercase;margin-bottom:8px;">ストレス時 — ${MSD[topStress]||'—'}</div><p style="font-size:13px;color:var(--text-sub);line-height:1.9;">ストレス反応は平常時の主モードとは別に、消極面の回答スコアから判定しています。プレッシャー下では${MSD[topStress]||'—'}の傾向が出やすい可能性があります。</p></div>`;
+  document.getElementById('modeCmtStr').innerHTML=`<div style="background:rgba(192,120,48,0.06);border:1px solid rgba(192,120,48,0.2);border-radius:8px;padding:16px 18px;"><div style="font-family:'Syne',sans-serif;font-size:10px;letter-spacing:.3em;color:var(--warn);text-transform:uppercase;margin-bottom:8px;">ストレス時 — ${stressResult.label}</div><p style="font-size:13px;color:var(--text-sub);line-height:1.9;">ストレス反応は平常時の主モードとは別に、消極面の回答スコアから判定しています。プレッシャー下では${stressResult.label}の傾向が出やすい可能性があります。</p></div>`;
 
   // コンピ波形
   if(cChart)cChart.destroy();
@@ -2848,6 +2877,7 @@ function showResult(scores,ti,compi,kish,mode,aiText){
 // 診断完了
 // =============================
 async function finishDiag(){
+  if(questions.length!==81||answers.length!==81||!answers.every(validAnswer)){alert("未回答の設問があります。");return;}
   sh('scr-load');window.scrollTo(0,0);
   document.getElementById('loadTxt').textContent='スコアを算出中...';
   const scores=calcScores();
@@ -2879,9 +2909,10 @@ async function finalizeDiagnosis(diag){
   const iv=setInterval(()=>{document.getElementById('loadTxt').textContent=msgs[++mi%msgs.length];},2000);
   const {scores,ti,compi,kish,mode}=diag;
   _lastScores=scores; _lastTi=ti; _lastCompi=compi; _lastMode=mode; _lastKish=kish;
-  try{localStorage.setItem('sv_scores',JSON.stringify(scores));localStorage.setItem('sv_ti',JSON.stringify(ti));localStorage.setItem('sv_compi',JSON.stringify(compi));localStorage.setItem('sv_mode',JSON.stringify(mode));localStorage.setItem('sv_kish',JSON.stringify(kish));localStorage.setItem('sv_purpose',purpose);localStorage.setItem('sv_profile',JSON.stringify(uProfile));localStorage.setItem('sv_temporal_answers',JSON.stringify(temporalAnswers));localStorage.setItem('sv_episode_answers',JSON.stringify(episodeAnswers));}catch(e){}
+  try{localStorage.setItem('sv_measurement',JSON.stringify(measurementRecord()));localStorage.setItem('sv_scores',JSON.stringify(scores));localStorage.setItem('sv_ti',JSON.stringify(ti));localStorage.setItem('sv_compi',JSON.stringify(compi));localStorage.setItem('sv_mode',JSON.stringify(mode));localStorage.setItem('sv_kish',JSON.stringify(kish));localStorage.setItem('sv_purpose',purpose);localStorage.setItem('sv_profile',JSON.stringify(uProfile));localStorage.setItem('sv_temporal_answers',JSON.stringify(temporalAnswers));localStorage.setItem('sv_episode_answers',JSON.stringify(episodeAnswers));}catch(e){}
 
   const saveData={
+    ...measurementRecord(),
     scores, type:ti.q, lv:ti.lv, lvName:ti.lvN,
     mode:Object.entries(mode.pct).sort((a,b)=>b[1]-a[1])[0][0],
     kish:Object.entries(kish.pct).sort((a,b)=>b[1]-a[1])[0][0],
@@ -2889,10 +2920,10 @@ async function finalizeDiagnosis(diag){
     profile:{age:uProfile.age, role:uProfile.role, industry:uProfile.industry, job:uProfile.job}
   };
   if(_isRediag){
-    localStorage.setItem('specv_after', JSON.stringify(saveData));
+    localStorage.setItem('specv_after_81_slots_20261002', JSON.stringify(saveData));
   } else {
-    if(!localStorage.getItem('specv_before')){
-      localStorage.setItem('specv_before', JSON.stringify(saveData));
+    if(!localStorage.getItem('specv_before_81_slots_20261002')){
+      localStorage.setItem('specv_before_81_slots_20261002', JSON.stringify(saveData));
     }
   }
   let aiText=null;
@@ -3106,18 +3137,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
   try{
     const topK=Object.entries(kish.pct).sort((a,b)=>b[1]-a[1]);
     const topM=Object.entries(mode.pct).sort((a,b)=>b[1]-a[1]);
-    const topMNames=topLabels(mode.pct);
-    const strMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-    const stressScores={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};
-    questions.forEach((q,i)=>{
-      if(!q.sub||!q.sub.includes('消極'))return;
-      let v=answers[i];if(q.reverse)v=8-v;
-      if(q.sub==='牽引モード消極')stressScores['牽引モード']=v;
-      else if(q.sub==='実務モード消極')stressScores['実務モード']=v;
-      else if(q.sub==='支援モード消極')stressScores['支援モード']=v;
-      else if(q.sub==='発想モード消極')stressScores['発想モード']=v;
-    });
-    const topStress=Object.entries(stressScores).sort((a,b)=>b[1]-a[1])[0][0];
+    const topMNames=topLabels(mode.pct);  const stressResult=calcStress();
     const purLbl={hire:'面接・採用',grow:'組織育成',self:'自己理解'};
     const kBadge=topK[0][0]+(topK[1]&&topK[1][1]>=topK[0][1]-12?'×'+topK[1][0]:'');
 
@@ -3131,6 +3151,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
     }
 
     const payload={
+      ...measurementRecord(),
       timestamp:new Date().toISOString(),
       token_id: sessionStorage.getItem('specv_token') || '', // サーバー側で使用済み更新に使う
       claim: sessionStorage.getItem('specv_token_claim') || '',
@@ -3144,7 +3165,7 @@ async function sendDiagnosisData(scores,ti,compi,kish,mode,aiText,deepInput,deep
       type_desc:ti.sub||'',
       temperament:kBadge||'',
       mode:topMNames.join('×')||'',
-      stress:strMap[topStress]||'',
+      stress:stressResult.label,
       level:ti.lv||0,
       level_name:ti.lvN||'',
       // 6軸
@@ -3252,12 +3273,16 @@ async function sendNotifyWithRetry(payload){
 // Before/After 差分表示
 // =============================
 async function showBeforeAfter(){
-  const beforeRaw=localStorage.getItem('specv_before');
-  const afterRaw=localStorage.getItem('specv_after');
+  const beforeRaw=localStorage.getItem('specv_before_81_slots_20261002');
+  const afterRaw=localStorage.getItem('specv_after_81_slots_20261002');
   if(!beforeRaw||!afterRaw)return;
 
   const before=JSON.parse(beforeRaw);
   const after=JSON.parse(afterRaw);
+  if(before.measurementVersion!==after.measurementVersion||before.scoringVersion!==after.scoringVersion){
+    document.getElementById('beforeAfterBlock').style.display='block';
+    document.getElementById('diffGrid').textContent='測定版・採点版が異なるため数値の差分比較は行いません。';return;
+  }
   const bS=before.scores, aS=after.scores;
 
   document.getElementById('beforeAfterBlock').style.display='block';
@@ -3338,6 +3363,7 @@ async function showBeforeAfter(){
 // AI変化分析呼び出し
 // =============================
 async function callChangeAnalysisAI(before,after){
+  if(!before.measurementVersion||before.measurementVersion!==after.measurementVersion||before.scoringVersion!==after.scoringVersion)throw new Error("測定版・採点版が異なるため比較できません");
   const bS=before.scores, aS=after.scores;
   const AXES=['suishin','doku','kaihou','jiko','tamashii','ai'];
   const AXLBL={suishin:'推進力',doku:'毒のなさ',kaihou:'解放度',jiko:'自己認知',tamashii:'魂',ai:'愛'};
@@ -3525,20 +3551,9 @@ async function callAI(scores,ti,compi){
   const primaryModes=topLabels(modePct);
   // 既存の単一値は互換用に残し、AIには同率首位の全件を渡す。
   const primaryMode=primaryModes[0]||'—';
-  const primaryModeText=primaryModes.length>1?primaryModes.join('と')+'の同率':primaryMode;
-  const stressMap={'牽引モード':'強引・独断','実務モード':'石頭・拒絶','支援モード':'抱え込み・献身疲れ','発想モード':'逃避・放棄'};
-  // 正式なストレス反応は、平常時モードの首位ではなく消極面スコアで判定する
-  const stressScores={'牽引モード':0,'実務モード':0,'支援モード':0,'発想モード':0};
-  questions.forEach((q,i)=>{
-    if(!q.sub||!q.sub.includes('消極'))return;
-    let v=answers[i];if(q.reverse)v=8-v;
-    if(q.sub==='牽引モード消極')stressScores['牽引モード']=v;
-    else if(q.sub==='実務モード消極')stressScores['実務モード']=v;
-    else if(q.sub==='支援モード消極')stressScores['支援モード']=v;
-    else if(q.sub==='発想モード消極')stressScores['発想モード']=v;
-  });
-  const topStress=Object.entries(stressScores).sort((a,b)=>b[1]-a[1])[0][0];
-  const stressLabel=stressMap[topStress]||'';
+  const primaryModeText=primaryModes.length>1?primaryModes.join('と')+'の同率':primaryMode;  // 画面・PDF・保存と同じストレス結果を使う。
+  const stressResult=calcStress();
+  const stressLabel=stressResult.label;
 
   // σ補正：回答スタイル分析
   const sigma=calcPersonalSigma(answers);
@@ -3586,8 +3601,9 @@ async function callAI(scores,ti,compi){
 性向：${primaryKish}（${kishText}）
 モード：${primaryModeText}（${modeText}）
 主モードの扱い：${primaryModes.length>1?primaryModes.join('と')+'の同率。どちらか一方を代表扱いせず、両方の組み合わせとして読む。':'単一首位。'}
+測定版：${MEASUREMENT_VERSION}／採点版：${SCORING_VERSION}
 ストレス反応：${stressLabel}
-正式なストレス反応として「${stressLabel}」を本文中に1回以上明示し、別のストレス反応名は記載しない。
+ストレス反応の表示「${stressLabel}」を保持する。同率は全ラベルを併記し、欠測なら代表反応を推測しない。設問と概念の適合は未検証のため断定しない。
 16項目詳細：${ct}
 設問コメント：${questionComments.map((comment,i)=>comment?(`Q${i+1}: ${comment}`):'').filter(Boolean).join(' / ')||'なし'}
 

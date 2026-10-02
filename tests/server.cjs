@@ -33,7 +33,7 @@ global.fetch = async (input, init = {}) => {
       : prompt.includes('【CURRENT_STATE】') ? ['CURRENT_STATE','POTENTIAL','CHECK_POINTS','INTERVIEW_QUESTIONS','ONBOARDING_SUPPORT','OVERALL']
       : prompt.includes('【GROWTH】') ? ['SUMMARY','GROWTH','CAUTION','ACTIVATION','OVERALL']
       : ['SUMMARY','STRENGTH','HONEST','NEXT','OVERALL'];
-    const stress = prompt.match(/ストレス反応：([^\n]+)/)?.[1]?.trim() || '';
+    const stress = state.aiStressOverride ?? (prompt.match(/ストレス反応：([^\n]+)/)?.[1]?.trim() || '');
     const sentence = `${stress}という反応にも注意しながら、周囲の意見を聴いて自分の考えを具体的な行動に移しています。次の仕事では目的と期限を共有し、進捗を確認してください。`;
     return Response.json({ content: [{ type: 'text', text: tags.map(tag => `【${tag}】${sentence.repeat(state.longAI ? 6 : 2)}`).join('\n') }], stop_reason: state.aiTruncated ? 'max_tokens' : 'end_turn' });
   }

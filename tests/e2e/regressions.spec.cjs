@@ -21,6 +21,7 @@ async function diagnosis(page, token = 'P-E2E') {
   await page.getByRole('button', { name: /自己理解/ }).click();
   await page.locator('#btnStart').click();
   await page.locator('#qComment').fill('最初の設問のコメント。相談して進めました。');
+  await page.getByRole('button',{name:'4（どちらとも言えない）を選ぶ',exact:true}).click();
   await page.locator('#btnNext').click();
   await page.locator('#qComment').fill('二問目のコメント。役割を確認しました。');
   await page.getByRole('button', { name: '← 戻る', exact: true }).click();
@@ -305,5 +306,62 @@ test('API: AIの空本文と途中終了を成功扱いしない', async ({ requ
     const response = await request.post('/api/analyze', { headers, data });
     expect(response.status()).toBe(502);
     expect((await response.json()).code).toBe(option === 'aiEmpty' ? 'ANTHROPIC_EMPTY_TEXT' : 'AI_OUTPUT_TRUNCATED');
+  }
+});
+
+
+test('stress snapshot agrees across screen, print, AI, notification and versioned history; legacy stays untouched', async ({page,request})=>{
+  await page.addInitScript(()=>{localStorage.setItem('specv_before','{"legacy":true}');localStorage.setItem('specv_after','{"legacy":true}');});
+  await diagnosis(page);
+  await expect.poll(async ()=>(await state(request)).notifications.length).toBeGreaterThan(0);
+  const snapshot=await page.evaluate(()=>measurementRecord());
+  await expect(page.locator('.badge-stress')).toContainText(snapshot.stressResult.label);
+  const captured=await state(request);
+  expect(captured.notifications[0].stressResult).toEqual(snapshot.stressResult);
+  expect(captured.notifications[0].responses).toHaveLength(81);
+  expect(captured.notifications[0].measurementVersion).toBe(snapshot.measurementVersion);
+  expect(captured.ai[0].messages[0].content).toContain('ストレス反応：'+snapshot.stressResult.label);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('sv_measurement')))).toEqual(snapshot);
+  expect(await page.evaluate(()=>JSON.parse(localStorage.getItem('specv_before_81_slots_20261002')).stressResult)).toEqual(snapshot.stressResult);
+  expect(await page.evaluate(()=>localStorage.getItem('specv_before'))).toBe('{"legacy":true}');
+  expect(await page.evaluate(()=>localStorage.getItem('specv_after'))).toBe('{"legacy":true}');
+  await page.getByRole('button',{name:/診断結果をPDFで保存する/}).click();
+  await expect.poll(()=>page.evaluate(()=>window.__printRequested)).toBe(true);
+  await expect(page.locator('#pdf-view')).toContainText(snapshot.stressResult.label);
+});
+
+test('unanswered cannot advance; explicit neutral and ties work without silent defaults',async({page})=>{
+  await page.goto(candidate+'?token=P-E2E');
+  await expect(page.locator('#token-gate')).toBeHidden();
+  for(const id of ['inAge','inRole','inIndustry','inJob'])await page.locator('#'+id).selectOption({index:1});
+  await page.getByRole('button',{name:/自己理解/}).click();
+  await page.locator('#btnStart').click();
+  const dialog=page.waitForEvent('dialog');const click=page.locator('#btnNext').click();
+  await (await dialog).accept();await click;
+  await expect(page.locator('#qNum')).toHaveText('1 / 81');
+  expect(await page.evaluate(()=>answers.every(a=>a===null))).toBe(true);
+  await page.getByRole('button',{name:'4（どちらとも言えない）を選ぶ',exact:true}).click();
+  await page.locator('#btnNext').click();
+  await expect(page.locator('#qNum')).toHaveText('2 / 81');
+  const tied=await page.evaluate(()=>{answers=questions.map(()=>4);return calcStress();});
+  expect(tied.leaders).toHaveLength(4);expect(tied.label).toContain('同率');
+  const missing=await page.evaluate(()=>{answers=questions.map(()=>null);return calcStress();});
+  expect(missing.leaders).toHaveLength(0);expect(missing.label).toContain('欠測');
+});
+
+
+test('AI validates all tied stress labels and does not invent a missing reaction',async({request})=>{
+  const {claim}=await (await request.get('/api/token?id=P-E2E')).json();
+  const headers={'x-specv-token':'P-E2E','x-specv-claim':claim};
+  for(const [expected,output,status] of [
+    ['強引・独断／石頭・拒絶（同率）','強引・独断／石頭・拒絶（同率）',200],
+    ['強引・独断／石頭・拒絶（同率）','強引・独断',502],
+    ['欠測（代表反応は未判定）','強引・独断',502],
+    ['欠測（代表反応は未判定）','欠測（代表反応は未判定）',200]
+  ]){
+    await request.post('/__test/options',{data:{aiStressOverride:output}});
+    const data={model:'test',max_tokens:3000,messages:[{role:'user',content:'【SUMMARY】【STRENGTH】【HONEST】【NEXT】【OVERALL】\nストレス反応：'+expected}]};
+    const response=await request.post('/api/analyze',{headers,data});expect(response.status()).toBe(status);
+    if(status===502)expect((await response.json()).code).toBe('AI_STRESS_MISMATCH');
   }
 });

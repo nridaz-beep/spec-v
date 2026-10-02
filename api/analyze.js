@@ -119,10 +119,13 @@ module.exports = async function handler(req, res) {
       const stressLabels = ['強引・独断', '石頭・拒絶', '抱え込み・献身疲れ', '逃避・放棄'];
       const stressMatch = promptText.match(/ストレス反応：([^\n]+)/);
       const expectedStress = stressMatch ? String(stressMatch[1]).trim() : '';
-      if (stressLabels.includes(expectedStress)) {
+      const expectedLabels = stressLabels.filter(label => expectedStress.includes(label));
+      const isMissingStress = expectedStress.startsWith('欠測');
+      if (expectedLabels.length || isMissingStress) {
         const mentionedStress = stressLabels.filter((label) => textBlock.text.includes(label));
-        const conflictingStress = mentionedStress.filter((label) => label !== expectedStress);
-        if (!textBlock.text.includes(expectedStress) || conflictingStress.length > 0) {
+        const conflictingStress = mentionedStress.filter(label => !expectedLabels.includes(label));
+        const missingStress = expectedLabels.filter(label => !textBlock.text.includes(label));
+        if (missingStress.length || conflictingStress.length || (isMissingStress && !textBlock.text.includes('欠測'))) {
           console.error('[analyze] Standard output stress mismatch', {
             expected_stress: expectedStress,
             mentioned_stress: mentionedStress,
