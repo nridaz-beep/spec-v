@@ -1,0 +1,23 @@
+name: Spec-V 130 lab checks
+on:
+  push:
+    branches: ['codex/**']
+    paths: ['labs/specv130/**', '.github/workflows/specv130-lab-check.yml']
+  pull_request:
+    paths: ['labs/specv130/**', '.github/workflows/specv130-lab-check.yml']
+permissions:
+  contents: read
+jobs:
+  isolated-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node --test labs/specv130/tests/core.test.cjs
+      - run: npx playwright install --with-deps chromium
+      - run: node node_modules/@playwright/test/cli.js test --config labs/specv130/tests/playwright.config.cjs

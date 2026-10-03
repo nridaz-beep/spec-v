@@ -8,3 +8,4 @@ playwright-report/
 tmp/
 .release-evidence.json
 supabase/.temp/
+output/specv-130-lab-review-20261003/
